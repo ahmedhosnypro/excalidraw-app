@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
 import { AuthDialog } from "@/components/auth/auth-dialog";
+import { AccountSettingsDialog } from "@/components/editor/account-settings-dialog";
 import { EditorMainMenu } from "@/components/editor/editor-main-menu";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
@@ -276,6 +277,8 @@ export function Editor() {
       <MoveToFolderDialog />
 
       <ShortcutsDialog />
+
+      <AccountSettingsDialog />
     </div>
   );
 }

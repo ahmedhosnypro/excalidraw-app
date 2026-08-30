@@ -301,3 +301,37 @@ export function useMoveFile() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
   });
 }
+
+// ─── Account settings ───────────────────────────────────────────────────────
+
+export function useUpdateName() {
+  return useMutation({
+    mutationFn: (name: string) =>
+      json<{ name: string }>(
+        fetch("/api/account/name", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name }),
+        })
+      ),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: ({
+      currentPassword,
+      newPassword,
+    }: {
+      currentPassword: string;
+      newPassword: string;
+    }) =>
+      json<{ ok: boolean }>(
+        fetch("/api/account/password", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword, newPassword }),
+        })
+      ),
+  });
+}

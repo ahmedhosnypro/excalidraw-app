@@ -2,7 +2,17 @@
 
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Check, CloudOff, Database, Loader2, LogIn, LogOut, Moon, Sun } from "lucide-react";
+import {
+  Check,
+  CloudOff,
+  Database,
+  Loader2,
+  LogIn,
+  LogOut,
+  Moon,
+  Settings,
+  Sun,
+} from "lucide-react";
 
 import { useEditorStore, type SaveStatus } from "@/stores/editor-store";
 import { useStorageUsage } from "@/hooks/use-files";
@@ -43,7 +53,7 @@ const saveStatusMeta: Record<
 export function EditorTopRight() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  const { saveStatus, openAuth } = useEditorStore();
+  const { saveStatus, openAuth, openAccountSettings } = useEditorStore();
   const { data: usage } = useStorageUsage(Boolean(session?.user));
 
   const isAuthed = Boolean(session?.user);
@@ -104,6 +114,10 @@ export function EditorTopRight() {
             <DropdownMenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
               {isDark ? <Sun className="mr-2 size-4" /> : <Moon className="mr-2 size-4" />}
               {isDark ? "Light mode" : "Dark mode"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={openAccountSettings}>
+              <Settings className="mr-2 size-4" />
+              Account settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
