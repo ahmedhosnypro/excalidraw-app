@@ -37,6 +37,14 @@ export const files = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Untitled"),
     /**
+     * User-controlled sort order within the sidebar (ascending). New files get
+     * the next sequential number so they appear last. Drag-to-reorder updates
+     * this column.
+     */
+    sortOrder: integer("sort_order").notNull().default(0),
+    /** Whether the user has starred (pinned) this drawing. */
+    starred: integer("starred", { mode: "boolean" }).notNull().default(false),
+    /**
      * Optional folder this drawing belongs to. Null = "All drawings" (root).
      * Folders are user-scoped; deleting a folder nulls this column (SET NULL)
      * so the drawings are not lost.

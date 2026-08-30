@@ -22,6 +22,8 @@ function toSummary(row: typeof files.$inferSelect): FileSummary {
   return {
     id: row.id,
     name: row.name,
+    sortOrder: row.sortOrder,
+    starred: row.starred,
     folderId: row.folderId,
     shareToken: row.shareToken,
     shareExpiresAt: row.shareExpiresAt ? row.shareExpiresAt.toISOString() : null,
@@ -142,20 +144,45 @@ export async function listFiles(userId: string): Promise<FileSummary[]> {
     .select()
     .from(files)
     .where(eq(files.userId, userId))
-    .orderBy(desc(files.lastOpenedAt), desc(files.updatedAt));
+    .orderBy(
+      desc(files.starred),
+      asc(files.sortOrder),
+      desc(files.lastOpenedAt),
+      desc(files.updatedAt)
+    );
   return rows.map(toSummary);
 }
 
 export async function createFile(userId: string, name?: string): Promise<FileSummary> {
+  // Assign the next sort order so the new file appears last in the sidebar.
+  const maxRow = await db
+    .select({ maxOrder: files.sortOrder })
+    .from(files)
+    .where(eq(files.userId, userId))
+    .orderBy(desc(files.sortOrder))
+    .limit(1);
+  const nextOrder = (maxRow[0]?.maxOrder ?? -1) + 1;
+
   const [row] = await db
     .insert(files)
-    .values({ userId, name: name?.trim() || "Untitled" })
+    .values({ userId, name: name?.trim() || "Untitled", sortOrder: nextOrder })
     .returning();
   if (!row) {
     throw new Error("Failed to create file");
   }
   return toSummary(row);
 }
+
+/** Maximum drawings a single user can have (abuse prevention). */
+const MAX_FILES_PER_USER = 200;
+
+/** Count a user's drawings (for the limit check). */
+export async function countFiles(userId: string): Promise<number> {
+  const rows = await db.select({ id: files.id }).from(files).where(eq(files.userId, userId));
+  return rows.length;
+}
+
+export const FILE_LIMIT = MAX_FILES_PER_USER;
 
 export async function getFile(userId: string, fileId: string): Promise<FileSummary | null> {
   const [row] = await db
@@ -513,6 +540,39 @@ export async function moveFile(
   const [row] = await db
     .update(files)
     .set({ folderId })
+    .where(and(eq(files.id, fileId), eq(files.userId, userId)))
+    .returning();
+  return row ? toSummary(row) : null;
+}
+
+/**
+ * Reorder drawings by updating their `sortOrder`. Accepts an ordered list of
+ * file ids (the desired order) and reassigns sequential sort orders (0..n).
+ * Only files owned by the user are affected. No-op for empty lists.
+ */
+export async function reorderFiles(userId: string, orderedIds: string[]): Promise<void> {
+  if (orderedIds.length === 0) {
+    return;
+  }
+  // Reassign sequential orders in a single pass — each update is scoped to the
+  // user's own files, so a malicious id in the list is silently ignored.
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(files)
+      .set({ sortOrder: i })
+      .where(and(eq(files.id, orderedIds[i]), eq(files.userId, userId)));
+  }
+}
+
+/** Toggle the starred (pinned) flag on a drawing. Returns the updated summary or null. */
+export async function toggleStar(userId: string, fileId: string): Promise<FileSummary | null> {
+  const owned = await getFile(userId, fileId);
+  if (!owned) {
+    return null;
+  }
+  const [row] = await db
+    .update(files)
+    .set({ starred: !owned.starred })
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;

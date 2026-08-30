@@ -3,6 +3,10 @@
 export type FileSummary = {
   id: string;
   name: string;
+  /** User-controlled sort order (ascending). */
+  sortOrder: number;
+  /** Whether the user has starred (pinned) this drawing. */
+  starred: boolean;
   /** Optional folder this drawing belongs to (null = root). */
   folderId: string | null;
   /** Opaque sharing token; non-null means the drawing is publicly viewable. */

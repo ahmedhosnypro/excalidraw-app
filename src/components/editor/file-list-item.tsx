@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, FolderInput, MoreVertical, Pencil, Share2, Trash2 } from "lucide-react";
+import { Copy, FolderInput, MoreVertical, Pencil, Share2, Star, Trash2 } from "lucide-react";
 
-import { useDuplicateFile, useFileContent, useRenameFile } from "@/hooks/use-files";
+import { useDuplicateFile, useFileContent, useRenameFile, useToggleStar } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,22 @@ interface FileListItemProps {
   name: string;
   shareToken: string | null;
   folderId: string | null;
+  starred: boolean;
   updatedAt: string;
 }
 
 /** A single drawing row in the sidebar: thumbnail + name + relative time + menu. */
-export function FileListItem({ fileId, name, shareToken, folderId, updatedAt }: FileListItemProps) {
+export function FileListItem({
+  fileId,
+  name,
+  shareToken,
+  folderId,
+  starred,
+  updatedAt,
+}: FileListItemProps) {
   const renameFile = useRenameFile();
   const duplicateFile = useDuplicateFile();
+  const toggleStar = useToggleStar();
   const { data: sceneJson } = useFileContent(fileId);
 
   const {
@@ -116,6 +125,24 @@ export function FileListItem({ fileId, name, shareToken, folderId, updatedAt }: 
           </span>
           <span className="text-xs text-muted-foreground">{formatRelativeTime(updatedAt)}</span>
         </button>
+      )}
+      {!renaming && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6 shrink-0"
+          aria-label={starred ? "Unstar" : "Star"}
+          onClick={() => toggleStar.mutate(fileId)}
+        >
+          <Star
+            className={cn(
+              "size-3.5",
+              starred
+                ? "fill-amber-400 text-amber-500"
+                : "text-muted-foreground/40 opacity-0 group-hover:opacity-100"
+            )}
+          />
+        </Button>
       )}
       {!renaming && (
         <DropdownMenu>

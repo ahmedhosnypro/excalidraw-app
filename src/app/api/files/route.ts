@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createFile, isUserId, listFiles, parseBody, requireUserId } from "@/lib/files";
+import {
+  countFiles,
+  createFile,
+  FILE_LIMIT,
+  isUserId,
+  listFiles,
+  parseBody,
+  requireUserId,
+} from "@/lib/files";
 
 export async function GET() {
   const auth = await requireUserId();
@@ -17,6 +25,13 @@ export async function POST(request: Request) {
   const auth = await requireUserId();
   if (!isUserId(auth)) {
     return auth;
+  }
+  const count = await countFiles(auth);
+  if (count >= FILE_LIMIT) {
+    return NextResponse.json(
+      { error: `Drawing limit reached (${FILE_LIMIT}). Delete some drawings to create more.` },
+      { status: 409 }
+    );
   }
   const parsed = await parseBody(request, createSchema);
   if (parsed instanceof NextResponse) {

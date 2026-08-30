@@ -68,6 +68,30 @@ export function useDuplicateFile() {
   });
 }
 
+export function useToggleStar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      json<FileSummary>(fetch(`/api/files/${id}/star`, { method: "POST" })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+  });
+}
+
+export function useReorderFiles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      json<{ ok: boolean }>(
+        fetch("/api/files/reorder", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ orderedIds }),
+        })
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+  });
+}
+
 export function useEnableShare() {
   const qc = useQueryClient();
   return useMutation({

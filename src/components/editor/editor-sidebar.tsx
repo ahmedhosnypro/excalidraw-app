@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/editor/user-avatar";
-import { FileListItem } from "@/components/editor/file-list-item";
+import { FileList } from "@/components/editor/file-list";
 import { FolderManager } from "@/components/editor/folder-manager";
 
 const MIN_FILES_FOR_SEARCH = 4;
@@ -190,18 +190,7 @@ export function EditorSidebar() {
               )}
             </div>
           ) : (
-            <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
-              {filteredFiles.map((file) => (
-                <FileListItem
-                  key={file.id}
-                  fileId={file.id}
-                  name={file.name}
-                  shareToken={file.shareToken}
-                  folderId={file.folderId}
-                  updatedAt={file.updatedAt}
-                />
-              ))}
-            </div>
+            <FileList files={filteredFiles} />
           )}
         </>
       )}
