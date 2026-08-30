@@ -6,15 +6,10 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/db/client";
 import { files } from "@/db/schema";
 import { getStorageProvider } from "@/lib/storage";
+import type { FileContent, FileSummary } from "@/lib/types";
 
 /** Public shape of a file returned to the client (no internal columns). */
-export type FileSummary = {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  lastOpenedAt: string | null;
-};
+export type { FileSummary } from "@/lib/types";
 
 function toSummary(row: typeof files.$inferSelect): FileSummary {
   return {
@@ -161,10 +156,7 @@ export async function saveContent(userId: string, fileId: string, data: string):
   return true;
 }
 
-export async function loadContent(
-  userId: string,
-  fileId: string
-): Promise<{ summary: FileSummary; data: string } | null> {
+export async function loadContent(userId: string, fileId: string): Promise<FileContent | null> {
   const summary = await getFile(userId, fileId);
   if (!summary) {
     return null;
