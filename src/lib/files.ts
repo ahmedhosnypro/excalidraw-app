@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { z } from "zod";
@@ -528,14 +528,8 @@ export async function moveFile(
   if (!owned) {
     return null;
   }
-  if (folderId !== null) {
-    const [folder] = await db
-      .select({ id: folders.id })
-      .from(folders)
-      .where(and(eq(folders.id, folderId), eq(folders.userId, userId)));
-    if (!folder) {
-      return null;
-    }
+  if (!(await folderOwned(userId, folderId))) {
+    return null;
   }
   const [row] = await db
     .update(files)
@@ -543,6 +537,18 @@ export async function moveFile(
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;
+}
+
+/** Check that a folder belongs to the user (or is null = root). */
+async function folderOwned(userId: string, folderId: string | null): Promise<boolean> {
+  if (folderId === null) {
+    return true;
+  }
+  const [folder] = await db
+    .select({ id: folders.id })
+    .from(folders)
+    .where(and(eq(folders.id, folderId), eq(folders.userId, userId)));
+  return Boolean(folder);
 }
 
 /**
@@ -576,6 +582,96 @@ export async function toggleStar(userId: string, fileId: string): Promise<FileSu
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;
+}
+
+// ─── Batch operations ──────────────────────────────────────────────────────
+
+/** Maximum number of files a single batch operation can target. */
+const MAX_BATCH = 50;
+
+/**
+ * Delete multiple drawings at once. Only files owned by the user are affected;
+ * foreign ids in the list are silently skipped. Returns the count actually
+ * deleted. Capped at MAX_BATCH per call.
+ */
+export async function batchDeleteFiles(userId: string, fileIds: string[]): Promise<number> {
+  const ids = fileIds.slice(0, MAX_BATCH);
+  const deleted = await db
+    .delete(files)
+    .where(and(eq(files.userId, userId), inArray(files.id, ids)))
+    .returning({ id: files.id });
+  for (const row of deleted) {
+    try {
+      await getStorageProvider().remove(row.id);
+    } catch {
+      // best-effort content cleanup
+    }
+  }
+  return deleted.length;
+}
+
+/**
+ * Move multiple drawings to a folder (or root). Only files owned by the user
+ * are affected. Returns the count actually moved. Capped at MAX_BATCH.
+ */
+export async function batchMoveFiles(
+  userId: string,
+  fileIds: string[],
+  folderId: string | null
+): Promise<number> {
+  const ids = fileIds.slice(0, MAX_BATCH);
+  if (!(await folderOwned(userId, folderId))) {
+    return 0;
+  }
+  const moved = await db
+    .update(files)
+    .set({ folderId })
+    .where(and(eq(files.userId, userId), inArray(files.id, ids)))
+    .returning({ id: files.id });
+  return moved.length;
+}
+
+/**
+ * Toggle the starred flag on multiple drawings. Only files owned by the user
+ * are affected. Returns the count actually updated. Capped at MAX_BATCH.
+ */
+export async function batchStarFiles(
+  userId: string,
+  fileIds: string[],
+  starred: boolean
+): Promise<number> {
+  const ids = fileIds.slice(0, MAX_BATCH);
+  const updated = await db
+    .update(files)
+    .set({ starred })
+    .where(and(eq(files.userId, userId), inArray(files.id, ids)))
+    .returning({ id: files.id });
+  return updated.length;
+}
+
+// ─── Storage usage ──────────────────────────────────────────────────────────
+
+/** Aggregate storage usage for a user (total bytes + file count). */
+export async function getStorageUsage(userId: string): Promise<{ bytes: number; count: number }> {
+  const rows = await db
+    .select({ sizeBytes: fileVersions.sizeBytes })
+    .from(fileVersions)
+    .innerJoin(files, eq(fileVersions.fileId, files.id))
+    .where(eq(files.userId, userId));
+  let versionBytes = 0;
+  for (const row of rows) {
+    versionBytes += row.sizeBytes;
+  }
+  const userFiles = await db.select({ id: files.id }).from(files).where(eq(files.userId, userId));
+  let liveBytes = 0;
+  const storage = getStorageProvider();
+  for (const f of userFiles) {
+    const content = await storage.load(f.id);
+    if (content) {
+      liveBytes += Buffer.byteLength(content, "utf8");
+    }
+  }
+  return { bytes: liveBytes + versionBytes, count: userFiles.length };
 }
 
 export { isUserId };

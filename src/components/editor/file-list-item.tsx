@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, FolderInput, MoreVertical, Pencil, Share2, Star, Trash2 } from "lucide-react";
+import {
+  CheckSquare,
+  Copy,
+  FolderInput,
+  MoreVertical,
+  Pencil,
+  Share2,
+  Square,
+  Star,
+  Trash2,
+} from "lucide-react";
 
 import { useDuplicateFile, useFileContent, useRenameFile, useToggleStar } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
@@ -47,11 +57,14 @@ export function FileListItem({
     setPendingDelete,
     openShareDialog,
     openMoveDialog,
+    selectedFileIds,
+    toggleFileSelection,
   } = useEditorStore();
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(name);
 
   const isActive = fileId === currentFileId;
+  const isSelected = selectedFileIds.has(fileId);
 
   async function handleOpen() {
     setCurrentFile(fileId, name, shareToken, folderId);
@@ -92,9 +105,30 @@ export function FileListItem({
     <div
       className={cn(
         "group flex items-center gap-2 rounded-md border px-2 py-2 text-sm transition-colors",
-        isActive ? "border-primary/40 bg-accent" : "border-transparent hover:bg-accent/60"
+        isActive
+          ? "border-primary/40 bg-accent"
+          : isSelected
+            ? "border-primary/30 bg-primary/5"
+            : "border-transparent hover:bg-accent/60"
       )}
     >
+      {!renaming && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFileSelection(fileId);
+          }}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={isSelected ? "Deselect" : "Select"}
+        >
+          {isSelected ? (
+            <CheckSquare className="size-4 text-primary" />
+          ) : (
+            <Square className="size-4 opacity-0 group-hover:opacity-100" />
+          )}
+        </button>
+      )}
       {!renaming && <FileThumbnail sceneJson={sceneJson ?? null} />}
       {renaming ? (
         <Input

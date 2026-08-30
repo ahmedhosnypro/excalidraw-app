@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/editor/user-avatar";
 import { FileList } from "@/components/editor/file-list";
 import { FolderManager } from "@/components/editor/folder-manager";
+import { BatchActionsBar } from "@/components/editor/batch-actions-bar";
 
 const MIN_FILES_FOR_SEARCH = 4;
 
@@ -44,6 +45,8 @@ export function EditorSidebar() {
     pendingDelete,
     setPendingDelete,
     folderFilter,
+    selectedFileIds,
+    clearSelection,
   } = useEditorStore();
   const [search, setSearch] = useState("");
 
@@ -165,6 +168,9 @@ export function EditorSidebar() {
         <>
           {folders && folders.length > 0 && (
             <FolderManager folders={folders} counts={folderCounts} />
+          )}
+          {selectedFileIds.size > 0 && (
+            <BatchActionsBar selectedIds={[...selectedFileIds]} onClear={clearSelection} />
           )}
           {isLoading ? (
             <div className="flex flex-col gap-2 p-3">

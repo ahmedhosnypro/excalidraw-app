@@ -36,6 +36,8 @@ interface EditorState {
   folderFilter: string | null;
   /** Keyboard shortcuts dialog open. */
   shortcutsOpen: boolean;
+  /** Batch selection: set of selected file ids in the sidebar. */
+  selectedFileIds: Set<string>;
   setCurrentFile: (
     id: string | null,
     name: string,
@@ -58,6 +60,8 @@ interface EditorState {
   setFolderFilter: (filter: string | null) => void;
   openShortcuts: () => void;
   closeShortcuts: () => void;
+  toggleFileSelection: (id: string) => void;
+  clearSelection: () => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -81,6 +85,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   moveDialog: null,
   folderFilter: null,
   shortcutsOpen: false,
+  selectedFileIds: new Set<string>(),
   setCurrentFile: (id, name, shareToken = null, folderId = null) =>
     set({
       currentFileId: id,
@@ -125,6 +130,17 @@ export const useEditorStore = create<EditorState>((set) => ({
   setFolderFilter: (folderFilter) => set({ folderFilter }),
   openShortcuts: () => set({ shortcutsOpen: true }),
   closeShortcuts: () => set({ shortcutsOpen: false }),
+  toggleFileSelection: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedFileIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { selectedFileIds: next };
+    }),
+  clearSelection: () => set({ selectedFileIds: new Set<string>() }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),

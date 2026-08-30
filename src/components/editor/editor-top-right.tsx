@@ -2,9 +2,11 @@
 
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Check, CloudOff, Loader2, LogIn, LogOut, Moon, Sun } from "lucide-react";
+import { Check, CloudOff, Database, Loader2, LogIn, LogOut, Moon, Sun } from "lucide-react";
 
 import { useEditorStore, type SaveStatus } from "@/stores/editor-store";
+import { useStorageUsage } from "@/hooks/use-files";
+import { formatBytes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,6 +44,7 @@ export function EditorTopRight() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
   const { saveStatus, openAuth } = useEditorStore();
+  const { data: usage } = useStorageUsage(Boolean(session?.user));
 
   const isAuthed = Boolean(session?.user);
   const isDark = theme === "dark";
@@ -89,6 +92,14 @@ export function EditorTopRight() {
                 </span>
               )}
             </DropdownMenuLabel>
+            {usage && (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                <Database className="size-3.5" />
+                <span>
+                  {formatBytes(usage.bytes)} · {usage.count} drawing{usage.count === 1 ? "" : "s"}
+                </span>
+              </div>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
               {isDark ? <Sun className="mr-2 size-4" /> : <Moon className="mr-2 size-4" />}

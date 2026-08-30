@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { useCreateSnapshot, useRestoreVersion, useVersions } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatBytes, formatRelativeTime } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -147,14 +147,4 @@ export function VersionHistoryDialog() {
       </DialogContent>
     </Dialog>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -92,6 +92,43 @@ export function useReorderFiles() {
   });
 }
 
+export type BatchAction = "delete" | "move" | "star" | "unstar";
+
+export function useBatchAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      action,
+      fileIds,
+      folderId,
+    }: {
+      action: BatchAction;
+      fileIds: string[];
+      folderId?: string | null;
+    }) =>
+      json<{ ok: boolean; count: number }>(
+        fetch("/api/files/batch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action, fileIds, folderId }),
+        })
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
+      qc.invalidateQueries({ queryKey: ["storage-usage"] });
+    },
+  });
+}
+
+export function useStorageUsage(enabled = true) {
+  return useQuery({
+    queryKey: ["storage-usage"],
+    queryFn: () => json<{ bytes: number; count: number }>(fetch("/api/storage-usage")),
+    enabled,
+    staleTime: 60 * 1000,
+  });
+}
+
 export function useEnableShare() {
   const qc = useQueryClient();
   return useMutation({
