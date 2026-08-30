@@ -26,6 +26,8 @@ interface EditorState {
   pendingDelete: { id: string; name: string } | null;
   /** Share dialog open state + target file (id + name + current token). */
   shareDialog: { fileId: string; name: string; token: string | null } | null;
+  /** Version history dialog open state + target file (id + name). */
+  historyDialog: { fileId: string; name: string } | null;
   setCurrentFile: (id: string | null, name: string, shareToken?: string | null) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -36,6 +38,8 @@ interface EditorState {
   openShareDialog: () => void;
   closeShareDialog: () => void;
   setShareToken: (token: string | null) => void;
+  openHistoryDialog: () => void;
+  closeHistoryDialog: () => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -54,6 +58,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   excalidrawApi: null,
   pendingDelete: null,
   shareDialog: null,
+  historyDialog: null,
   setCurrentFile: (id, name, shareToken = null) =>
     set({
       currentFileId: id,
@@ -85,6 +90,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       currentShareToken: token,
       ...(state.shareDialog ? { shareDialog: { ...state.shareDialog, token } } : {}),
     })),
+  openHistoryDialog: () =>
+    set((state) =>
+      state.currentFileId
+        ? { historyDialog: { fileId: state.currentFileId, name: state.currentName } }
+        : {}
+    ),
+  closeHistoryDialog: () => set({ historyDialog: null }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),

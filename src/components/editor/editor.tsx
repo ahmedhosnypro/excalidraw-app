@@ -12,6 +12,7 @@ import { EditorMainMenu } from "@/components/editor/editor-main-menu";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
 import { ShareDialog } from "@/components/editor/share-dialog";
+import { VersionHistoryDialog } from "@/components/editor/version-history-dialog";
 import { useCreateFile, loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
 import { parseScene } from "@/lib/scene";
 import { useEditorStore } from "@/stores/editor-store";
@@ -267,6 +268,8 @@ export function Editor() {
       />
 
       <ShareDialog />
+
+      <VersionHistoryDialog />
     </div>
   );
 }

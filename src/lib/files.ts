@@ -4,9 +4,9 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db/client";
-import { files } from "@/db/schema";
+import { fileVersions, files } from "@/db/schema";
 import { getStorageProvider } from "@/lib/storage";
-import type { FileContent, FileSummary, SharedFile } from "@/lib/types";
+import type { FileContent, FileSummary, FileVersionSummary, SharedFile } from "@/lib/types";
 
 /** Public shape of a file returned to the client (no internal columns). */
 export type { FileSummary } from "@/lib/types";
@@ -149,6 +149,20 @@ export async function saveContent(userId: string, fileId: string, data: string):
   if (!owned) {
     return false;
   }
+  // Snapshot the previous content before overwriting, so it's recoverable via
+  // version history. Only snapshot when the content actually differs (avoids
+  // filling history with no-op saves from the debounced autosave).
+  const existing = await getStorageProvider().load(fileId);
+  if (existing !== null && existing !== data) {
+    const [version] = await db
+      .insert(fileVersions)
+      .values({ fileId, sizeBytes: Buffer.byteLength(existing, "utf8") })
+      .returning();
+    if (version) {
+      await getStorageProvider().save(`v-${version.id}`, existing);
+      await pruneVersions(fileId);
+    }
+  }
   await getStorageProvider().save(fileId, data);
   await db
     .update(files)
@@ -229,6 +243,128 @@ export async function getSharedFile(token: string): Promise<SharedFile | null> {
   }
   const data = await getStorageProvider().load(row.id);
   return { name: row.name, data: data ?? "" };
+}
+
+// ─── Version history ────────────────────────────────────────────────────────
+
+const MAX_VERSIONS_PER_FILE = 20;
+
+function toVersionSummary(row: typeof fileVersions.$inferSelect): FileVersionSummary {
+  return {
+    id: row.id,
+    fileId: row.fileId,
+    createdAt: row.createdAt.toISOString(),
+    sizeBytes: row.sizeBytes,
+  };
+}
+
+/**
+ * Create a version snapshot of a drawing's current content. Called before a
+ * save overwrites the live content, so the previous state is recoverable.
+ * Prunes the oldest versions beyond the per-file cap. No-op if the file is not
+ * owned by the user.
+ */
+export async function createVersionSnapshot(userId: string, fileId: string): Promise<void> {
+  const owned = await getFile(userId, fileId);
+  if (!owned) {
+    return;
+  }
+  const data = await getStorageProvider().load(fileId);
+  if (!data) {
+    return;
+  }
+  const [version] = await db
+    .insert(fileVersions)
+    .values({ fileId, sizeBytes: Buffer.byteLength(data, "utf8") })
+    .returning();
+  if (version) {
+    await getStorageProvider().save(`v-${version.id}`, data);
+  }
+  await pruneVersions(fileId);
+}
+
+/** Prune oldest versions beyond the per-file cap. */
+async function pruneVersions(fileId: string): Promise<void> {
+  const all = await db
+    .select({ id: fileVersions.id })
+    .from(fileVersions)
+    .where(eq(fileVersions.fileId, fileId))
+    .orderBy(desc(fileVersions.createdAt));
+  if (all.length <= MAX_VERSIONS_PER_FILE) {
+    return;
+  }
+  const toRemove = all.slice(MAX_VERSIONS_PER_FILE);
+  for (const v of toRemove) {
+    try {
+      await getStorageProvider().remove(`v-${v.id}`);
+    } catch {
+      // best-effort cleanup
+    }
+    await db.delete(fileVersions).where(eq(fileVersions.id, v.id));
+  }
+}
+
+/** List all version snapshots for a drawing, newest first. */
+export async function listVersions(
+  userId: string,
+  fileId: string
+): Promise<FileVersionSummary[] | null> {
+  const owned = await getFile(userId, fileId);
+  if (!owned) {
+    return null;
+  }
+  const rows = await db
+    .select()
+    .from(fileVersions)
+    .where(eq(fileVersions.fileId, fileId))
+    .orderBy(desc(fileVersions.createdAt));
+  return rows.map(toVersionSummary);
+}
+
+/** Load the scene content of a specific version snapshot. */
+export async function getVersionContent(
+  userId: string,
+  fileId: string,
+  versionId: string
+): Promise<(FileVersionSummary & { data: string }) | null> {
+  const owned = await getFile(userId, fileId);
+  if (!owned) {
+    return null;
+  }
+  const [version] = await db
+    .select()
+    .from(fileVersions)
+    .where(and(eq(fileVersions.id, versionId), eq(fileVersions.fileId, fileId)));
+  if (!version) {
+    return null;
+  }
+  const data = await getStorageProvider().load(`v-${version.id}`);
+  return { ...toVersionSummary(version), data: data ?? "" };
+}
+
+/**
+ * Restore a drawing to a previous version: snapshot the current content (so the
+ * restore point itself is recoverable), then overwrite the live content with
+ * the version's snapshot. Returns the updated file summary, or `null` if the
+ * version/file is not found or not owned.
+ */
+export async function restoreVersion(
+  userId: string,
+  fileId: string,
+  versionId: string
+): Promise<FileSummary | null> {
+  const versionData = await getVersionContent(userId, fileId, versionId);
+  if (!versionData) {
+    return null;
+  }
+  await createVersionSnapshot(userId, fileId);
+  await getStorageProvider().save(fileId, versionData.data);
+  const [row] = await db
+    .update(files)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(files.id, fileId), eq(files.userId, userId)))
+    .returning();
+  return row ? toSummary(row) : null;
 }
 
 export { isUserId };

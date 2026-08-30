@@ -10,6 +10,7 @@ import {
   FileImage,
   FilePlus,
   Files,
+  History,
   LogIn,
   LogOut,
   Moon,
@@ -40,6 +41,7 @@ export function EditorMainMenu() {
     currentName,
     currentFileId,
     openShareDialog,
+    openHistoryDialog,
   } = useEditorStore();
   const createFile = useCreateFile();
 
@@ -191,6 +193,18 @@ export function EditorMainMenu() {
           }
         >
           Share
+        </MainMenu.Item>
+      )}
+      {canShare && (
+        <MainMenu.Item
+          onSelect={openHistoryDialog}
+          icon={
+            <Icon>
+              <History />
+            </Icon>
+          }
+        >
+          Version history
         </MainMenu.Item>
       )}
       <MainMenu.Group title="Export">

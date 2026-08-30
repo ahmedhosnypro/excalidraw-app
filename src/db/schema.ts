@@ -54,7 +54,34 @@ export const files = sqliteTable(
   (table) => [index("files_user_id_idx").on(table.userId)]
 );
 
+/**
+ * Snapshot of a drawing's content at a point in time, for version history.
+ *
+ * Content is stored as a separate storage blob keyed by the version id (not the
+ * file id) so restoring an old version is a pure copy. Snapshots are created
+ * opportunistically (throttled) when a save would overwrite meaningfully
+ * different content; old versions are pruned to a cap per file.
+ */
+export const fileVersions = sqliteTable(
+  "file_versions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    /** Size of the snapshot content in bytes (for display + pruning). */
+    sizeBytes: integer("size_bytes").notNull().default(0),
+  },
+  (table) => [index("file_versions_file_id_idx").on(table.fileId)]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type File = typeof files.$inferSelect;
 export type NewFile = typeof files.$inferInsert;
+export type FileVersion = typeof fileVersions.$inferSelect;

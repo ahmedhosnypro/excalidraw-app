@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { FileSummary } from "@/lib/types";
+import type { FileSummary, FileVersionSummary } from "@/lib/types";
 
 async function json<T>(resPromise: Promise<Response>): Promise<T> {
   const res = await resPromise;
@@ -95,6 +95,38 @@ export async function fetchSharedFile(
     return null;
   }
   return (await res.json()) as { name: string; data: string };
+}
+
+// ─── Version history ────────────────────────────────────────────────────────
+
+export function useVersions(fileId: string | null) {
+  return useQuery({
+    queryKey: ["versions", fileId],
+    queryFn: () => json<FileVersionSummary[]>(fetch(`/api/files/${fileId}/versions`)),
+    enabled: Boolean(fileId),
+  });
+}
+
+export function useCreateSnapshot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      json<FileVersionSummary[]>(fetch(`/api/files/${fileId}/versions`, { method: "POST" })),
+    onSuccess: (_data, fileId) => qc.invalidateQueries({ queryKey: ["versions", fileId] }),
+  });
+}
+
+export function useRestoreVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileId, versionId }: { fileId: string; versionId: string }) =>
+      json<FileSummary>(fetch(`/api/files/${fileId}/versions/${versionId}`, { method: "POST" })),
+    onSuccess: (_data, { fileId }) => {
+      qc.invalidateQueries({ queryKey: ["versions", fileId] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+      qc.invalidateQueries({ queryKey: ["file-content", fileId] });
+    },
+  });
 }
 
 /**

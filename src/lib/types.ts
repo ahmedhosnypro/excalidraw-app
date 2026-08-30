@@ -20,3 +20,11 @@ export type SharedFile = {
   name: string;
   data: string;
 };
+
+/** Public shape of a drawing version snapshot. */
+export type FileVersionSummary = {
+  id: string;
+  fileId: string;
+  createdAt: string;
+  sizeBytes: number;
+};
