@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { FileSummary, FileVersionSummary, FolderSummary } from "@/lib/types";
+import type { FileSummary, FileVersionSummary, FolderSummary, SearchResult } from "@/lib/types";
 
 async function json<T>(resPromise: Promise<Response>): Promise<T> {
   const res = await resPromise;
@@ -333,5 +333,29 @@ export function useChangePassword() {
           body: JSON.stringify({ currentPassword, newPassword }),
         })
       ),
+  });
+}
+
+// ─── Content search + recent ────────────────────────────────────────────────
+
+export function useContentSearch() {
+  return useMutation({
+    mutationFn: (query: string) =>
+      json<SearchResult[]>(
+        fetch("/api/files/search", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        })
+      ),
+  });
+}
+
+export function useRecentFiles(enabled = true) {
+  return useQuery({
+    queryKey: ["recent-files"],
+    queryFn: () => json<FileSummary[]>(fetch("/api/files/recent")),
+    enabled,
+    staleTime: 60 * 1000,
   });
 }

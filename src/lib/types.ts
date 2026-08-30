@@ -43,3 +43,11 @@ export type FolderSummary = {
   name: string;
   createdAt: string;
 };
+
+/** A content-search match (text found inside a drawing's text elements). */
+export type SearchResult = {
+  fileId: string;
+  name: string;
+  snippet: string | null;
+  updatedAt: string;
+};

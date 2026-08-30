@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Sidebar } from "@excalidraw/excalidraw";
 import { useSession } from "next-auth/react";
-import { FilePlus, Loader2, Search } from "lucide-react";
+import { FilePlus, Loader2, Search, Type } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCreateFile, useDeleteFile, useFiles, useFolders } from "@/hooks/use-files";
@@ -26,6 +26,8 @@ import { UserAvatar } from "@/components/editor/user-avatar";
 import { FileList } from "@/components/editor/file-list";
 import { FolderManager } from "@/components/editor/folder-manager";
 import { BatchActionsBar } from "@/components/editor/batch-actions-bar";
+import { SearchPanel } from "@/components/editor/search-panel";
+import { RecentFiles } from "@/components/editor/recent-files";
 
 const MIN_FILES_FOR_SEARCH = 4;
 
@@ -47,6 +49,8 @@ export function EditorSidebar() {
     folderFilter,
     selectedFileIds,
     clearSelection,
+    searchPanelOpen,
+    setSearchPanelOpen,
   } = useEditorStore();
   const [search, setSearch] = useState("");
 
@@ -141,14 +145,26 @@ export function EditorSidebar() {
             )}
           </div>
           {isAuthed && files && files.length >= MIN_FILES_FOR_SEARCH && (
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search drawings…"
-                className="h-8 pl-7 text-xs"
-              />
+            <div className="flex items-center gap-1">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name…"
+                  className="h-8 pl-7 text-xs"
+                />
+              </div>
+              <Button
+                variant={searchPanelOpen ? "default" : "outline"}
+                size="icon"
+                className="size-8 shrink-0"
+                aria-label="Search in content"
+                title="Search text inside drawings"
+                onClick={() => setSearchPanelOpen(!searchPanelOpen)}
+              >
+                <Type className="size-3.5" />
+              </Button>
             </div>
           )}
         </div>
@@ -164,8 +180,11 @@ export function EditorSidebar() {
             Create a free account
           </Button>
         </div>
+      ) : searchPanelOpen ? (
+        <SearchPanel onClose={() => setSearchPanelOpen(false)} />
       ) : (
         <>
+          {files && files.length > 0 && <RecentFiles />}
           {folders && folders.length > 0 && (
             <FolderManager folders={folders} counts={folderCounts} />
           )}

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { z } from "zod";
@@ -672,6 +672,89 @@ export async function getStorageUsage(userId: string): Promise<{ bytes: number; 
     }
   }
   return { bytes: liveBytes + versionBytes, count: userFiles.length };
+}
+
+// ─── Content search ────────────────────────────────────────────────────────
+
+export type SearchResult = {
+  fileId: string;
+  name: string;
+  /** Excerpt of the matching text (text elements only), or null for structural matches. */
+  snippet: string | null;
+  updatedAt: string;
+};
+
+/**
+ * Search across drawing content (text inside text elements). Loads each file's
+ * scene JSON and greps for the query in any text element's `text` property.
+ * Returns matches with a short snippet. No external index — fine for typical
+ * libraries (a few hundred drawings); could be upgraded to FTS later.
+ */
+export async function searchFileContents(userId: string, query: string): Promise<SearchResult[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return [];
+  }
+  const userFiles = await db
+    .select()
+    .from(files)
+    .where(eq(files.userId, userId))
+    .orderBy(desc(files.lastOpenedAt));
+  const storage = getStorageProvider();
+  const results: SearchResult[] = [];
+  for (const file of userFiles) {
+    const content = await storage.load(file.id);
+    if (!content) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(content) as { elements?: Array<{ type?: string; text?: string }> };
+      const textElements = (parsed.elements ?? []).filter(
+        (el) => el.type === "text" && typeof el.text === "string"
+      );
+      for (const el of textElements) {
+        if (el.text?.toLowerCase().includes(q)) {
+          results.push({
+            fileId: file.id,
+            name: file.name,
+            snippet: makeSnippet(el.text, q),
+            updatedAt: file.updatedAt.toISOString(),
+          });
+          break;
+        }
+      }
+    } catch {
+      // skip unparseable content
+    }
+  }
+  return results;
+}
+
+/** Build a short snippet around the first match, highlighting nothing (client handles display). */
+function makeSnippet(text: string, query: string): string {
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query);
+  if (idx === -1) {
+    return text.slice(0, 80);
+  }
+  const start = Math.max(0, idx - 20);
+  const end = Math.min(text.length, idx + query.length + 40);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < text.length ? "…" : "";
+  return prefix + text.slice(start, end) + suffix;
+}
+
+// ─── Recently opened ────────────────────────────────────────────────────────
+
+/** Return the N most recently opened drawings (by lastOpenedAt, then updatedAt). */
+export async function listRecentFiles(userId: string, limit = 5): Promise<FileSummary[]> {
+  const rows = await db
+    .select()
+    .from(files)
+    .where(and(eq(files.userId, userId), sql`${files.lastOpenedAt} IS NOT NULL`))
+    .orderBy(desc(files.lastOpenedAt))
+    .limit(limit);
+  return rows.map(toSummary);
 }
 
 export { isUserId };

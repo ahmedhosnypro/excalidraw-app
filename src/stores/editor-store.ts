@@ -40,6 +40,8 @@ interface EditorState {
   accountSettingsOpen: boolean;
   /** Batch selection: set of selected file ids in the sidebar. */
   selectedFileIds: Set<string>;
+  /** Whether the content-search panel is active (replaces the file list). */
+  searchPanelOpen: boolean;
   setCurrentFile: (
     id: string | null,
     name: string,
@@ -66,6 +68,7 @@ interface EditorState {
   closeAccountSettings: () => void;
   toggleFileSelection: (id: string) => void;
   clearSelection: () => void;
+  setSearchPanelOpen: (open: boolean) => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -91,6 +94,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   shortcutsOpen: false,
   accountSettingsOpen: false,
   selectedFileIds: new Set<string>(),
+  searchPanelOpen: false,
   setCurrentFile: (id, name, shareToken = null, folderId = null) =>
     set({
       currentFileId: id,
@@ -148,6 +152,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { selectedFileIds: next };
     }),
   clearSelection: () => set({ selectedFileIds: new Set<string>() }),
+  setSearchPanelOpen: (searchPanelOpen) => set({ searchPanelOpen }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),
