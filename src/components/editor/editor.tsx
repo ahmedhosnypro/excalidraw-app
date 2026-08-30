@@ -11,6 +11,7 @@ import { AuthDialog } from "@/components/auth/auth-dialog";
 import { EditorMainMenu } from "@/components/editor/editor-main-menu";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
+import { MoveToFolderDialog } from "@/components/editor/move-to-folder-dialog";
 import { ShareDialog } from "@/components/editor/share-dialog";
 import { VersionHistoryDialog } from "@/components/editor/version-history-dialog";
 import { useCreateFile, loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
@@ -270,6 +271,8 @@ export function Editor() {
       <ShareDialog />
 
       <VersionHistoryDialog />
+
+      <MoveToFolderDialog />
     </div>
   );
 }

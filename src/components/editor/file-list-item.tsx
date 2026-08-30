@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, MoreVertical, Pencil, Share2, Trash2 } from "lucide-react";
+import { Copy, FolderInput, MoreVertical, Pencil, Share2, Trash2 } from "lucide-react";
 
 import { useDuplicateFile, useFileContent, useRenameFile } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
@@ -21,24 +21,31 @@ interface FileListItemProps {
   fileId: string;
   name: string;
   shareToken: string | null;
+  folderId: string | null;
   updatedAt: string;
 }
 
 /** A single drawing row in the sidebar: thumbnail + name + relative time + menu. */
-export function FileListItem({ fileId, name, shareToken, updatedAt }: FileListItemProps) {
+export function FileListItem({ fileId, name, shareToken, folderId, updatedAt }: FileListItemProps) {
   const renameFile = useRenameFile();
   const duplicateFile = useDuplicateFile();
   const { data: sceneJson } = useFileContent(fileId);
 
-  const { currentFileId, setCurrentFile, setSidebarOpen, setPendingDelete, openShareDialog } =
-    useEditorStore();
+  const {
+    currentFileId,
+    setCurrentFile,
+    setSidebarOpen,
+    setPendingDelete,
+    openShareDialog,
+    openMoveDialog,
+  } = useEditorStore();
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(name);
 
   const isActive = fileId === currentFileId;
 
   async function handleOpen() {
-    setCurrentFile(fileId, name, shareToken);
+    setCurrentFile(fileId, name, shareToken, folderId);
     setSidebarOpen(false);
   }
 
@@ -133,6 +140,10 @@ export function FileListItem({ fileId, name, shareToken, updatedAt }: FileListIt
             <DropdownMenuItem onSelect={() => handleShare()}>
               <Share2 className="mr-2 size-4" />
               Share
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openMoveDialog(fileId, name, folderId)}>
+              <FolderInput className="mr-2 size-4" />
+              Move to folder
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

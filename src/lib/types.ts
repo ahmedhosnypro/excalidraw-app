@@ -3,6 +3,8 @@
 export type FileSummary = {
   id: string;
   name: string;
+  /** Optional folder this drawing belongs to (null = root). */
+  folderId: string | null;
   /** Opaque sharing token; non-null means the drawing is publicly viewable. */
   shareToken: string | null;
   createdAt: string;
@@ -27,4 +29,11 @@ export type FileVersionSummary = {
   fileId: string;
   createdAt: string;
   sizeBytes: number;
+};
+
+/** Public shape of a user-owned folder. */
+export type FolderSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
 };

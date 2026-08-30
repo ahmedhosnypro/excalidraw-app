@@ -1,24 +1,40 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { z } from "zod";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db/client";
-import { fileVersions, files } from "@/db/schema";
+import { fileVersions, files, folders } from "@/db/schema";
 import { getStorageProvider } from "@/lib/storage";
-import type { FileContent, FileSummary, FileVersionSummary, SharedFile } from "@/lib/types";
+import type {
+  FileContent,
+  FileSummary,
+  FileVersionSummary,
+  FolderSummary,
+  SharedFile,
+} from "@/lib/types";
 
 /** Public shape of a file returned to the client (no internal columns). */
-export type { FileSummary } from "@/lib/types";
+export type { FileSummary, FolderSummary } from "@/lib/types";
 
 function toSummary(row: typeof files.$inferSelect): FileSummary {
   return {
     id: row.id,
     name: row.name,
+    folderId: row.folderId,
     shareToken: row.shareToken,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     lastOpenedAt: row.lastOpenedAt ? row.lastOpenedAt.toISOString() : null,
+  };
+}
+
+function toFolderSummary(row: typeof folders.$inferSelect): FolderSummary {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -78,6 +94,46 @@ export function withAuth(
 
 export function notFound(): NextResponse {
   return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+
+/** Bad-request response for invalid input. */
+function badRequest(message = "Invalid input"): NextResponse {
+  return NextResponse.json({ error: message }, { status: 400 });
+}
+
+/**
+ * Resolve auth + an `id` route param for a generic per-id route handler (used
+ * by folders, which aren't files). Returns `{ userId, id }` or a 401 response.
+ */
+export async function resolveAuthIdParam(context: {
+  params: Promise<{ id: string }>;
+}): Promise<{ userId: string; id: string } | NextResponse> {
+  const auth = await requireUserId();
+  if (!isUserId(auth)) {
+    return auth;
+  }
+  const { id } = await context.params;
+  return { userId: auth, id };
+}
+
+/** Type guard for the result of `resolveAuthIdParam`. */
+export function isAuthIdParam(
+  value: { userId: string; id: string } | NextResponse
+): value is { userId: string; id: string } {
+  return !(value instanceof NextResponse);
+}
+
+/** Parse + validate a JSON request body with a zod schema. Returns null on failure. */
+export async function parseBody<T>(
+  request: Request,
+  schema: z.ZodType<T>
+): Promise<{ data: T } | NextResponse> {
+  const body: unknown = await request.json().catch(() => null);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return badRequest();
+  }
+  return { data: parsed.data };
 }
 
 export async function listFiles(userId: string): Promise<FileSummary[]> {
@@ -362,6 +418,87 @@ export async function restoreVersion(
   const [row] = await db
     .update(files)
     .set({ updatedAt: new Date() })
+    .where(and(eq(files.id, fileId), eq(files.userId, userId)))
+    .returning();
+  return row ? toSummary(row) : null;
+}
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+/** List all folders owned by the user, alphabetically. */
+export async function listFolders(userId: string): Promise<FolderSummary[]> {
+  const rows = await db
+    .select()
+    .from(folders)
+    .where(eq(folders.userId, userId))
+    .orderBy(asc(folders.name));
+  return rows.map(toFolderSummary);
+}
+
+/** Create a new folder. Name is trimmed; duplicates are allowed. */
+export async function createFolder(userId: string, name: string): Promise<FolderSummary> {
+  const [row] = await db
+    .insert(folders)
+    .values({ userId, name: name.trim() || "New folder" })
+    .returning();
+  if (!row) {
+    throw new Error("Failed to create folder");
+  }
+  return toFolderSummary(row);
+}
+
+/** Rename a folder. Returns null if not owned by the user. */
+export async function renameFolder(
+  userId: string,
+  folderId: string,
+  name: string
+): Promise<FolderSummary | null> {
+  const [row] = await db
+    .update(folders)
+    .set({ name: name.trim() || "Untitled" })
+    .where(and(eq(folders.id, folderId), eq(folders.userId, userId)))
+    .returning();
+  return row ? toFolderSummary(row) : null;
+}
+
+/**
+ * Delete a folder. Drawings inside are moved to root (folderId set to null via
+ * the schema's ON DELETE SET NULL). Returns true if the folder was deleted.
+ */
+export async function deleteFolder(userId: string, folderId: string): Promise<boolean> {
+  const [row] = await db
+    .delete(folders)
+    .where(and(eq(folders.id, folderId), eq(folders.userId, userId)))
+    .returning({ id: folders.id });
+  return Boolean(row);
+}
+
+/**
+ * Move a drawing to a folder (or to root when folderId is null). Validates
+ * ownership of both the file and the target folder. Returns the updated summary,
+ * or null if the file/folder is not owned.
+ */
+export async function moveFile(
+  userId: string,
+  fileId: string,
+  folderId: string | null
+): Promise<FileSummary | null> {
+  const owned = await getFile(userId, fileId);
+  if (!owned) {
+    return null;
+  }
+  if (folderId !== null) {
+    const [folder] = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(and(eq(folders.id, folderId), eq(folders.userId, userId)));
+    if (!folder) {
+      return null;
+    }
+  }
+  const [row] = await db
+    .update(files)
+    .set({ folderId })
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { FileSummary, FileVersionSummary } from "@/lib/types";
+import type { FileSummary, FileVersionSummary, FolderSummary } from "@/lib/types";
 
 async function json<T>(resPromise: Promise<Response>): Promise<T> {
   const res = await resPromise;
@@ -165,5 +165,72 @@ export async function touchFile(id: string): Promise<void> {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ touch: true }),
+  });
+}
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+export function useFolders(enabled = true) {
+  return useQuery({
+    queryKey: ["folders"],
+    queryFn: () => json<FolderSummary[]>(fetch("/api/folders")),
+    enabled,
+  });
+}
+
+export function useCreateFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      json<FolderSummary>(
+        fetch("/api/folders", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name }),
+        })
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["folders"] }),
+  });
+}
+
+export function useRenameFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      json<FolderSummary>(
+        fetch(`/api/folders/${id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name }),
+        })
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["folders"] }),
+  });
+}
+
+export function useDeleteFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      json<{ ok: boolean }>(fetch(`/api/folders/${id}`, { method: "DELETE" })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["folders"] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useMoveFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileId, folderId }: { fileId: string; folderId: string | null }) =>
+      json<FileSummary>(
+        fetch(`/api/files/${fileId}/move`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ folderId }),
+        })
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
   });
 }

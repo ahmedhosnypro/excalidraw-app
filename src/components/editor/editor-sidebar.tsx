@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { FilePlus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { useCreateFile, useDeleteFile, useFiles } from "@/hooks/use-files";
+import { useCreateFile, useDeleteFile, useFiles, useFolders } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/editor/user-avatar";
 import { FileListItem } from "@/components/editor/file-list-item";
+import { FolderManager } from "@/components/editor/folder-manager";
 
 const MIN_FILES_FOR_SEARCH = 4;
 
@@ -31,6 +32,7 @@ export function EditorSidebar() {
   const { data: session } = useSession();
   const isAuthed = Boolean(session?.user);
   const { data: files, isLoading } = useFiles(isAuthed);
+  const { data: folders } = useFolders(isAuthed);
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
 
@@ -41,19 +43,37 @@ export function EditorSidebar() {
     openAuth,
     pendingDelete,
     setPendingDelete,
+    folderFilter,
   } = useEditorStore();
   const [search, setSearch] = useState("");
+
+  const folderCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!files) {
+      return counts;
+    }
+    for (const f of files) {
+      if (f.folderId) {
+        counts.set(f.folderId, (counts.get(f.folderId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [files]);
 
   const filteredFiles = useMemo(() => {
     if (!files) {
       return [];
     }
-    const q = search.trim().toLowerCase();
-    if (!q) {
-      return files;
+    let result = files;
+    if (folderFilter !== null) {
+      result = result.filter((f) => f.folderId === folderFilter);
     }
-    return files.filter((f) => f.name.toLowerCase().includes(q));
-  }, [files, search]);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter((f) => f.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [files, search, folderFilter]);
 
   async function handleCreate() {
     const file = await createFile.mutateAsync("Untitled");
@@ -141,35 +161,49 @@ export function EditorSidebar() {
             Create a free account
           </Button>
         </div>
-      ) : isLoading ? (
-        <div className="flex flex-col gap-2 p-3">
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-        </div>
-      ) : !files || files.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
-          <FilePlus className="size-8 text-muted-foreground/50" />
-          <p>
-            No drawings yet. Click <span className="font-medium text-foreground">New</span> to
-            create one.
-          </p>
-        </div>
-      ) : filteredFiles.length === 0 ? (
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          No drawings match <span className="font-medium text-foreground">"{search}"</span>.
-        </div>
       ) : (
-        <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
-          {filteredFiles.map((file) => (
-            <FileListItem
-              key={file.id}
-              fileId={file.id}
-              name={file.name}
-              shareToken={file.shareToken}
-              updatedAt={file.updatedAt}
-            />
-          ))}
-        </div>
+        <>
+          {folders && folders.length > 0 && (
+            <FolderManager folders={folders} counts={folderCounts} />
+          )}
+          {isLoading ? (
+            <div className="flex flex-col gap-2 p-3">
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+            </div>
+          ) : !files || files.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
+              <FilePlus className="size-8 text-muted-foreground/50" />
+              <p>
+                No drawings yet. Click <span className="font-medium text-foreground">New</span> to
+                create one.
+              </p>
+            </div>
+          ) : filteredFiles.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              {search ? (
+                <>
+                  No drawings match <span className="font-medium text-foreground">"{search}"</span>.
+                </>
+              ) : (
+                "No drawings in this folder."
+              )}
+            </div>
+          ) : (
+            <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
+              {filteredFiles.map((file) => (
+                <FileListItem
+                  key={file.id}
+                  fileId={file.id}
+                  name={file.name}
+                  shareToken={file.shareToken}
+                  folderId={file.folderId}
+                  updatedAt={file.updatedAt}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Delete confirmation is rendered here so it overlays even when the

@@ -37,6 +37,12 @@ export const files = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Untitled"),
     /**
+     * Optional folder this drawing belongs to. Null = "All drawings" (root).
+     * Folders are user-scoped; deleting a folder nulls this column (SET NULL)
+     * so the drawings are not lost.
+     */
+    folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
+    /**
      * Opaque sharing token. When non-null, the drawing is publicly viewable
      * (read-only) at `/?share=<token>`. Rotating or nulling the token revokes
      * any previously shared link.
@@ -51,7 +57,31 @@ export const files = sqliteTable(
       .$onUpdate(() => new Date()),
     lastOpenedAt: integer("last_opened_at", { mode: "timestamp" }),
   },
-  (table) => [index("files_user_id_idx").on(table.userId)]
+  (table) => [
+    index("files_user_id_idx").on(table.userId),
+    index("files_folder_id_idx").on(table.folderId),
+  ]
+);
+
+/**
+ * User-owned folder for grouping drawings in the sidebar.
+ * Simple flat structure (no nesting) to keep the UI scannable.
+ */
+export const folders = sqliteTable(
+  "folders",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index("folders_user_id_idx").on(table.userId)]
 );
 
 /**

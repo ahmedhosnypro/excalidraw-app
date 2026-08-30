@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createFile, isUserId, listFiles, parseBody, requireUserId } from "@/lib/files";
+import { createFolder, isUserId, listFolders, parseBody, requireUserId } from "@/lib/files";
 
 export async function GET() {
   const auth = await requireUserId();
   if (!isUserId(auth)) {
     return auth;
   }
-  return NextResponse.json(await listFiles(auth));
+  return NextResponse.json(await listFolders(auth));
 }
 
-const createSchema = z.object({ name: z.string().max(255).optional() });
+const createSchema = z.object({ name: z.string().min(1).max(100) });
 
 export async function POST(request: Request) {
   const auth = await requireUserId();
@@ -22,6 +22,6 @@ export async function POST(request: Request) {
   if (parsed instanceof NextResponse) {
     return parsed;
   }
-  const file = await createFile(auth, parsed.data.name);
-  return NextResponse.json(file, { status: 201 });
+  const folder = await createFolder(auth, parsed.data.name);
+  return NextResponse.json(folder, { status: 201 });
 }

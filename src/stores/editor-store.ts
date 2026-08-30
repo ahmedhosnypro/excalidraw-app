@@ -12,6 +12,8 @@ interface EditorState {
   currentName: string;
   /** Share token of the current drawing (null = not shared / guest). */
   currentShareToken: string | null;
+  /** Folder id of the current drawing (null = root). */
+  currentFolderId: string | null;
   saveStatus: SaveStatus;
   sidebarOpen: boolean;
   authOpen: boolean;
@@ -28,7 +30,16 @@ interface EditorState {
   shareDialog: { fileId: string; name: string; token: string | null } | null;
   /** Version history dialog open state + target file (id + name). */
   historyDialog: { fileId: string; name: string } | null;
-  setCurrentFile: (id: string | null, name: string, shareToken?: string | null) => void;
+  /** Move-to-folder dialog target (file id + name + current folderId). */
+  moveDialog: { fileId: string; name: string; folderId: string | null } | null;
+  /** Folder filter active in the sidebar: null = "All", "none" = root (no folder), id = that folder. */
+  folderFilter: string | null;
+  setCurrentFile: (
+    id: string | null,
+    name: string,
+    shareToken?: string | null,
+    folderId?: string | null
+  ) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setSidebarOpen: (open: boolean) => void;
   setToggleSidebarFn: (fn: (() => void) | null) => void;
@@ -40,6 +51,9 @@ interface EditorState {
   setShareToken: (token: string | null) => void;
   openHistoryDialog: () => void;
   closeHistoryDialog: () => void;
+  openMoveDialog: (fileId: string, name: string, folderId: string | null) => void;
+  closeMoveDialog: () => void;
+  setFolderFilter: (filter: string | null) => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -49,6 +63,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   currentFileId: null,
   currentName: "Untitled",
   currentShareToken: null,
+  currentFolderId: null,
   saveStatus: "idle",
   sidebarOpen: false,
   authOpen: false,
@@ -59,11 +74,14 @@ export const useEditorStore = create<EditorState>((set) => ({
   pendingDelete: null,
   shareDialog: null,
   historyDialog: null,
-  setCurrentFile: (id, name, shareToken = null) =>
+  moveDialog: null,
+  folderFilter: null,
+  setCurrentFile: (id, name, shareToken = null, folderId = null) =>
     set({
       currentFileId: id,
       currentName: name,
       currentShareToken: shareToken,
+      currentFolderId: folderId,
       saveStatus: "idle",
     }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
@@ -97,6 +115,9 @@ export const useEditorStore = create<EditorState>((set) => ({
         : {}
     ),
   closeHistoryDialog: () => set({ historyDialog: null }),
+  openMoveDialog: (fileId, name, folderId) => set({ moveDialog: { fileId, name, folderId } }),
+  closeMoveDialog: () => set({ moveDialog: null }),
+  setFolderFilter: (folderFilter) => set({ folderFilter }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),
