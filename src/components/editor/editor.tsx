@@ -48,6 +48,7 @@ export function Editor() {
     setCurrentFile,
     setSaveStatus,
     setToggleSidebarFn,
+    setForceSaveFn,
     closeAuth,
     setAuthMode,
   } = useEditorStore();
@@ -57,6 +58,7 @@ export function Editor() {
   const latestScene = useRef<string>("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const migratedRef = useRef(false);
+  const savingInFlight = useRef(false);
 
   const isAuthed = status === "authenticated" && Boolean(session?.user);
   const fileId = isAuthed ? currentFileId : null;
@@ -71,32 +73,68 @@ export function Editor() {
     return Promise.resolve(EMPTY_SCENE);
   }, [fileId, isAuthed]);
 
-  const handleChange = useCallback<OnChange>(
-    (elements, appState) => {
-      latestScene.current = JSON.stringify({ elements, appState });
-      if (saveTimer.current) {
+  const persistScene = useCallback(
+    async (scene: string, immediate = false) => {
+      if (immediate && saveTimer.current) {
         clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      } else if (!immediate) {
+        if (saveTimer.current) {
+          clearTimeout(saveTimer.current);
+        }
+        saveTimer.current = setTimeout(() => {
+          void persistScene(latestScene.current, true);
+        }, 1500);
+        return;
       }
-      saveTimer.current = setTimeout(async () => {
-        const scene = latestScene.current;
-        if (!scene) {
-          return;
+      if (!scene || savingInFlight.current) {
+        return;
+      }
+      savingInFlight.current = true;
+      setSaveStatus("saving");
+      try {
+        if (isAuthed && fileId) {
+          await saveFileContent(fileId, scene);
+        } else if (!isAuthed) {
+          localStorage.setItem(GUEST_STORAGE_KEY, scene);
         }
-        setSaveStatus("saving");
-        try {
-          if (isAuthed && fileId) {
-            await saveFileContent(fileId, scene);
-          } else if (!isAuthed) {
-            localStorage.setItem(GUEST_STORAGE_KEY, scene);
-          }
-          setSaveStatus("saved");
-        } catch {
-          setSaveStatus("error");
-        }
-      }, 1500);
+        setSaveStatus("saved");
+      } catch {
+        setSaveStatus("error");
+      } finally {
+        savingInFlight.current = false;
+      }
     },
     [fileId, isAuthed, setSaveStatus]
   );
+
+  const handleChange = useCallback<OnChange>(
+    (elements, appState) => {
+      latestScene.current = JSON.stringify({ elements, appState });
+      void persistScene(latestScene.current);
+    },
+    [persistScene]
+  );
+
+  // Expose an imperative force-save (used by the Ctrl/Cmd+S shortcut).
+  useEffect(() => {
+    setForceSaveFn(() => () => {
+      void persistScene(latestScene.current, true);
+    });
+    return () => setForceSaveFn(null);
+  }, [persistScene, setForceSaveFn]);
+
+  // Ctrl/Cmd+S — force-save the current scene immediately (bypass debounce).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void persistScene(latestScene.current, true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [persistScene]);
 
   // Mark the active drawing as opened + auto-pick the most recent on first auth.
   useEffect(() => {

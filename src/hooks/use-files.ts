@@ -59,6 +59,15 @@ export function useRenameFile() {
   });
 }
 
+export function useDuplicateFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      json<FileSummary>(fetch(`/api/files/${id}/duplicate`, { method: "POST" })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+  });
+}
+
 export async function loadFileContent(id: string): Promise<string> {
   const res = await fetch(`/api/files/${id}/content`);
   if (!res.ok) {

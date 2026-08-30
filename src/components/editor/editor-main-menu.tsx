@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { MainMenu } from "@excalidraw/excalidraw";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { FilePlus, Files, LogIn, LogOut, Moon, Sun } from "lucide-react";
+import { Files, LogIn, LogOut, Moon, Save, Sun, FilePlus } from "lucide-react";
 
 import { useCreateFile } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
@@ -16,7 +16,7 @@ function Icon({ children }: { children: ReactNode }) {
 export function EditorMainMenu() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  const { setCurrentFile, openAuth, toggleSidebarFn } = useEditorStore();
+  const { setCurrentFile, openAuth, toggleSidebarFn, forceSaveFn } = useEditorStore();
   const createFile = useCreateFile();
 
   const isAuthed = Boolean(session?.user);
@@ -52,6 +52,17 @@ export function EditorMainMenu() {
         }
       >
         My drawings
+      </MainMenu.Item>
+      <MainMenu.Item
+        onSelect={() => forceSaveFn?.()}
+        icon={
+          <Icon>
+            <Save />
+          </Icon>
+        }
+        shortcut="Ctrl+S"
+      >
+        Save now
       </MainMenu.Item>
       <MainMenu.Separator />
       <MainMenu.Item

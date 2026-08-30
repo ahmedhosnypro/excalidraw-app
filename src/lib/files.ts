@@ -165,4 +165,22 @@ export async function loadContent(userId: string, fileId: string): Promise<FileC
   return { summary, data: data ?? "" };
 }
 
+/**
+ * Duplicate a drawing: copy its metadata (with a " (copy)" suffix on the name)
+ * and clone its scene content into a new storage blob. Returns the new file
+ * summary, or `null` if the source does not exist or is not owned by the user.
+ */
+export async function duplicateFile(userId: string, fileId: string): Promise<FileSummary | null> {
+  const source = await getFile(userId, fileId);
+  if (!source) {
+    return null;
+  }
+  const copy = await createFile(userId, `${source.name} (copy)`);
+  const data = await getStorageProvider().load(fileId);
+  if (data) {
+    await getStorageProvider().save(copy.id, data);
+  }
+  return copy;
+}
+
 export { isUserId };

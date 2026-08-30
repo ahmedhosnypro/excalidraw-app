@@ -1,17 +1,41 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Check, CloudOff, Loader2, LogIn, Moon, Sun } from "lucide-react";
+import { Check, CloudOff, Loader2, LogIn, LogOut, Moon, Sun } from "lucide-react";
 
 import { useEditorStore, type SaveStatus } from "@/stores/editor-store";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/editor/user-avatar";
 
-const saveStatusMeta: Record<SaveStatus, { label: string; icon: React.ReactNode }> = {
-  idle: { label: "", icon: null },
-  saving: { label: "Saving…", icon: <Loader2 className="size-3 animate-spin" /> },
-  saved: { label: "Saved", icon: <Check className="size-3" /> },
-  error: { label: "Save failed", icon: <CloudOff className="size-3" /> },
+const saveStatusMeta: Record<
+  SaveStatus,
+  { label: string; icon: React.ReactNode; className: string }
+> = {
+  idle: { label: "", icon: null, className: "" },
+  saving: {
+    label: "Saving…",
+    icon: <Loader2 className="size-3 animate-spin" />,
+    className: "text-muted-foreground",
+  },
+  saved: {
+    label: "Saved",
+    icon: <Check className="size-3" />,
+    className: "text-emerald-600 dark:text-emerald-400",
+  },
+  error: {
+    label: "Save failed",
+    icon: <CloudOff className="size-3" />,
+    className: "text-destructive",
+  },
 };
 
 export function EditorTopRight() {
@@ -26,7 +50,9 @@ export function EditorTopRight() {
   return (
     <div className="flex items-center gap-2">
       {status.icon && (
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span
+          className={`flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-xs font-medium ${status.className}`}
+        >
           {status.icon}
           {status.label}
         </span>
@@ -40,9 +66,44 @@ export function EditorTopRight() {
         {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </Button>
       {isAuthed ? (
-        <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
-          {session?.user?.name ?? session?.user?.email}
-        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Account menu"
+              className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <UserAvatar
+                name={session?.user?.name}
+                email={session?.user?.email}
+                className="size-8"
+              />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span className="font-medium">{session?.user?.name ?? "Account"}</span>
+              {session?.user?.email && (
+                <span className="truncate text-xs font-normal text-muted-foreground">
+                  {session.user.email}
+                </span>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
+              {isDark ? <Sun className="mr-2 size-4" /> : <Moon className="mr-2 size-4" />}
+              {isDark ? "Light mode" : "Dark mode"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => signOut()}
+              className="text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 size-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : (
         <Button size="sm" variant="outline" onClick={() => openAuth("signin")}>
           <LogIn className="mr-1 size-4" />

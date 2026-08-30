@@ -1,22 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Sidebar } from "@excalidraw/excalidraw";
 import { useSession } from "next-auth/react";
-import { FilePlus, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Copy, FilePlus, Loader2, MoreVertical, Pencil, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useCreateFile, useDeleteFile, useFiles, useRenameFile } from "@/hooks/use-files";
+import {
+  useCreateFile,
+  useDeleteFile,
+  useDuplicateFile,
+  useFiles,
+  useRenameFile,
+} from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserAvatar } from "@/components/editor/user-avatar";
+
+const MIN_FILES_FOR_SEARCH = 4;
 
 export function EditorSidebar() {
   const { data: session } = useSession();
@@ -25,10 +46,24 @@ export function EditorSidebar() {
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
   const renameFile = useRenameFile();
+  const duplicateFile = useDuplicateFile();
 
   const { currentFileId, setCurrentFile, setSidebarOpen, openAuth } = useEditorStore();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [search, setSearch] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const filteredFiles = useMemo(() => {
+    if (!files) {
+      return [];
+    }
+    const q = search.trim().toLowerCase();
+    if (!q) {
+      return files;
+    }
+    return files.filter((f) => f.name.toLowerCase().includes(q));
+  }, [files, search]);
 
   async function handleCreate() {
     const file = await createFile.mutateAsync("Untitled");
@@ -54,12 +89,27 @@ export function EditorSidebar() {
     await renameFile.mutateAsync({ id, name });
   }
 
-  async function handleDelete(id: string) {
+  async function handleDuplicate(id: string, name: string) {
+    try {
+      const copy = await duplicateFile.mutateAsync(id);
+      toast.success(`Duplicated "${name}"`);
+      setCurrentFile(copy.id, copy.name);
+    } catch {
+      toast.error("Could not duplicate the drawing.");
+    }
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) {
+      return;
+    }
+    const { id, name } = pendingDelete;
+    setPendingDelete(null);
     await deleteFile.mutateAsync(id);
     if (currentFileId === id) {
       setCurrentFile(null, "Untitled");
     }
-    toast.success("Drawing deleted");
+    toast.success(`Deleted "${name}"`);
   }
 
   return (
@@ -69,22 +119,49 @@ export function EditorSidebar() {
       onStateChange={(state) => setSidebarOpen(state !== null)}
     >
       <Sidebar.Header>
-        <div className="flex w-full items-center justify-between">
-          <span className="text-sm font-semibold">My drawings</span>
-          {isAuthed && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCreate}
-              disabled={createFile.isPending}
-            >
-              {createFile.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <FilePlus className="size-3" />
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">My drawings</span>
+              {files && files.length > 0 && (
+                <Badge variant="secondary" className="px-1.5 py-0 text-xs font-normal">
+                  {files.length}
+                </Badge>
               )}
-              New
-            </Button>
+            </div>
+            {isAuthed ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCreate}
+                disabled={createFile.isPending}
+                className="h-7 gap-1 px-2"
+              >
+                {createFile.isPending ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <FilePlus className="size-3" />
+                )}
+                New
+              </Button>
+            ) : (
+              <UserAvatar
+                name={session?.user?.name}
+                email={session?.user?.email}
+                className="size-7"
+              />
+            )}
+          </div>
+          {isAuthed && files && files.length >= MIN_FILES_FOR_SEARCH && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search drawings…"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
           )}
         </div>
       </Sidebar.Header>
@@ -101,17 +178,24 @@ export function EditorSidebar() {
         </div>
       ) : isLoading ? (
         <div className="flex flex-col gap-2 p-3">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
         </div>
       ) : !files || files.length === 0 ? (
-        <div className="p-4 text-sm text-muted-foreground">
-          No drawings yet. Click <span className="font-medium text-foreground">New</span> to create
-          one.
+        <div className="flex flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
+          <FilePlus className="size-8 text-muted-foreground/50" />
+          <p>
+            No drawings yet. Click <span className="font-medium text-foreground">New</span> to
+            create one.
+          </p>
+        </div>
+      ) : filteredFiles.length === 0 ? (
+        <div className="p-4 text-center text-sm text-muted-foreground">
+          No drawings match <span className="font-medium text-foreground">"{search}"</span>.
         </div>
       ) : (
         <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
-          {files.map((file) => {
+          {filteredFiles.map((file) => {
             const isActive = file.id === currentFileId;
             const isRenaming = renamingId === file.id;
             return (
@@ -161,8 +245,13 @@ export function EditorSidebar() {
                         <Pencil className="mr-2 size-4" />
                         Rename
                       </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleDuplicate(file.id, file.name)}>
+                        <Copy className="mr-2 size-4" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onSelect={() => handleDelete(file.id)}
+                        onSelect={() => setPendingDelete({ id: file.id, name: file.name })}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 size-4" />
@@ -176,6 +265,33 @@ export function EditorSidebar() {
           })}
         </div>
       )}
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this drawing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">"{pendingDelete?.name}"</span> and its
+              content. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteFile.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteFile.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteFile.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }
