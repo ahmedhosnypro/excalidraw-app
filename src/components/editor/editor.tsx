@@ -56,6 +56,7 @@ export function Editor() {
   const apiRef = useRef<ExcalidrawApi | null>(null);
   const latestScene = useRef<string>("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const migratedRef = useRef(false);
 
   const isAuthed = status === "authenticated" && Boolean(session?.user);
   const fileId = isAuthed ? currentFileId : null;
@@ -105,22 +106,37 @@ export function Editor() {
   }, [isAuthed, fileId]);
 
   // Guest -> cloud migration: when a guest signs in with an unsaved drawing,
-  // persist it as a new cloud file so no work is lost.
+  // persist it as a new cloud file so no work is lost. The ref guard + synchronous
+  // localStorage removal prevent re-entry from creating duplicate files.
   useEffect(() => {
-    if (!isAuthed || currentFileId || createFile.isPending) {
+    if (!isAuthed || currentFileId || migratedRef.current) {
       return;
     }
     const guestScene = localStorage.getItem(GUEST_STORAGE_KEY);
     if (!guestScene) {
+      migratedRef.current = true;
       return;
     }
+    // Only migrate when the guest actually drew something (skip empty autosaves).
+    let hasContent = false;
+    try {
+      const parsed = JSON.parse(guestScene) as { elements?: unknown[] };
+      hasContent = Array.isArray(parsed.elements) && parsed.elements.length > 0;
+    } catch {
+      hasContent = false;
+    }
+    migratedRef.current = true;
+    localStorage.removeItem(GUEST_STORAGE_KEY);
+    if (!hasContent) {
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       try {
         const file = await createFile.mutateAsync("Imported drawing");
         await saveFileContent(file.id, guestScene);
         if (!cancelled) {
-          localStorage.removeItem(GUEST_STORAGE_KEY);
           setCurrentFile(file.id, file.name);
           toast.success("Your drawing was saved to the cloud.");
         }
@@ -134,6 +150,13 @@ export function Editor() {
       cancelled = true;
     };
   }, [isAuthed, currentFileId, createFile, setCurrentFile]);
+
+  // Reset the migration guard when the user signs out (allows re-migration next sign-in).
+  useEffect(() => {
+    if (!isAuthed) {
+      migratedRef.current = false;
+    }
+  }, [isAuthed]);
 
   // Auto-clear the "saved" indicator after a moment.
   useEffect(() => {
