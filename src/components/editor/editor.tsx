@@ -5,12 +5,13 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { EditorMainMenu } from "@/components/editor/editor-main-menu";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
-import { loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
+import { useCreateFile, loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
 
 type ExcalidrawProps = React.ComponentProps<typeof Excalidraw>;
@@ -43,11 +44,14 @@ export function Editor() {
     currentName,
     authOpen,
     authMode,
+    saveStatus,
+    setCurrentFile,
     setSaveStatus,
     setToggleSidebarFn,
     closeAuth,
     setAuthMode,
   } = useEditorStore();
+  const createFile = useCreateFile();
 
   const apiRef = useRef<ExcalidrawApi | null>(null);
   const latestScene = useRef<string>("");
@@ -99,6 +103,46 @@ export function Editor() {
       void touchFile(fileId);
     }
   }, [isAuthed, fileId]);
+
+  // Guest -> cloud migration: when a guest signs in with an unsaved drawing,
+  // persist it as a new cloud file so no work is lost.
+  useEffect(() => {
+    if (!isAuthed || currentFileId || createFile.isPending) {
+      return;
+    }
+    const guestScene = localStorage.getItem(GUEST_STORAGE_KEY);
+    if (!guestScene) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const file = await createFile.mutateAsync("Imported drawing");
+        await saveFileContent(file.id, guestScene);
+        if (!cancelled) {
+          localStorage.removeItem(GUEST_STORAGE_KEY);
+          setCurrentFile(file.id, file.name);
+          toast.success("Your drawing was saved to the cloud.");
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("Could not import your guest drawing.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthed, currentFileId, createFile, setCurrentFile]);
+
+  // Auto-clear the "saved" indicator after a moment.
+  useEffect(() => {
+    if (saveStatus !== "saved") {
+      return;
+    }
+    const t = setTimeout(() => setSaveStatus("idle"), 2500);
+    return () => clearTimeout(t);
+  }, [saveStatus, setSaveStatus]);
 
   useEffect(() => {
     return () => {
