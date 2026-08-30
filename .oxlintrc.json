@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "node_modules/**",
+    ".next/**",
+    ".next-dev/**",
+    "out/**",
+    "build/**",
+    "examples/**",
+    "skills/**",
+    "mini-services/**",
+    "tests/**",
+    "scripts/**",
+    "download/**",
+    "report/**",
+    "storage/**",
+    "db/**",
+    "src/components/ui/**",
+    "src/db/migrations/**",
+    ".husky/**",
+    "next-env.d.ts",
+    "bun.lock"
+  ],
+  "categories": {
+    "correctness": "warn"
+  },
+  "rules": {}
+}

@@ -1,50 +1,81 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
-import { dirname } from "path";
-import { fileURLToPath } from "url";
+import drizzle from "eslint-plugin-drizzle";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
-  rules: {
-    // TypeScript rules
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-unused-vars": "off",
-    "@typescript-eslint/no-non-null-assertion": "off",
-    "@typescript-eslint/ban-ts-comment": "off",
-    "@typescript-eslint/prefer-as-const": "off",
-    "@typescript-eslint/no-unused-disable-directive": "off",
-    
-    // React rules
-    "react-hooks/exhaustive-deps": "off",
-    "react-hooks/purity": "off",
-    "react/no-unescaped-entities": "off",
-    "react/display-name": "off",
-    "react/prop-types": "off",
-    "react-compiler/react-compiler": "off",
-    
-    // Next.js rules
-    "@next/next/no-img-element": "off",
-    "@next/next/no-html-link-for-pages": "off",
-    
-    // General JavaScript rules
-    "prefer-const": "off",
-    "no-unused-vars": "off",
-    "no-console": "off",
-    "no-debugger": "off",
-    "no-empty": "off",
-    "no-irregular-whitespace": "off",
-    "no-case-declarations": "off",
-    "no-fallthrough": "off",
-    "no-mixed-spaces-and-tabs": "off",
-    "no-redeclare": "off",
-    "no-undef": "off",
-    "no-unreachable": "off",
-    "no-useless-escape": "off",
+const eslintConfig = [
+  {
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      ".next-dev/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+      "examples/**",
+      "skills/**",
+      "mini-services/**",
+      "tests/**",
+      "scripts/**",
+      "download/**",
+      "report/**",
+      "storage/**",
+      "db/**",
+      "src/components/ui/**",
+      "src/components/ui/**/*.ts",
+      "src/components/ui/**/*.tsx",
+      "src/hooks/use-toast.ts",
+      "src/hooks/use-mobile.ts",
+      "src/db/migrations/**",
+      ".husky/**",
+    ],
   },
-}, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
-}];
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+  {
+    plugins: { drizzle },
+    rules: {
+      // ── Drizzle query safety ──────────────────────────────────────────
+      "drizzle/enforce-delete-with-where": "error",
+      "drizzle/enforce-update-with-where": "error",
+
+      // ── TypeScript strictness ──────────────────────────────────────────
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/consistent-type-imports": "warn",
+      "@typescript-eslint/no-non-null-assertion": "warn",
+
+      // ── React ─────────────────────────────────────────────────────────
+      "react-hooks/exhaustive-deps": "warn",
+      "react/no-unescaped-entities": "off",
+      "react/display-name": "off",
+      "react/prop-types": "off",
+
+      // ── Next.js ───────────────────────────────────────────────────────
+      "@next/next/no-img-element": "off",
+      "@next/next/no-html-link-for-pages": "off",
+
+      // ── General JavaScript quality ────────────────────────────────────
+      "prefer-const": "error",
+      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-debugger": "error",
+      "no-empty": ["warn", { allowEmptyCatch: true }],
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "eqeqeq": ["error", "always"],
+      "no-unused-vars": "off",
+      "no-case-declarations": "off",
+      "no-fallthrough": "off",
+      "no-mixed-spaces-and-tabs": "off",
+      "no-redeclare": "off",
+      "no-undef": "off",
+      "no-unreachable": "off",
+      "no-useless-escape": "off",
+      "no-irregular-whitespace": "off",
+    },
+  },
+];
 
 export default eslintConfig;

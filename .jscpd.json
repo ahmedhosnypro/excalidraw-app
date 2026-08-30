@@ -1,0 +1,29 @@
+{
+  "threshold": 0,
+  "reporters": ["console", "json"],
+  "output": "./report",
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "min-lines": 5,
+  "min-tokens": 60,
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/.next-dev/**",
+    "**/out/**",
+    "**/build/**",
+    "**/examples/**",
+    "**/skills/**",
+    "**/mini-services/**",
+    "**/tests/**",
+    "**/download/**",
+    "**/report/**",
+    "**/storage/**",
+    "**/db/**",
+    "**/src/components/ui/**",
+    "**/src/db/migrations/**",
+    "**/.husky/**",
+    "**/bun.lock",
+    "**/next-env.d.ts",
+    "**/*.config.{mjs,ts,js}"
+  ]
+}

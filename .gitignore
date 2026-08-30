@@ -134,3 +134,14 @@ dev.log
 .browser-auth/
 
 __pycache__
+
+# Sandbox scaffolding (environment tooling, not part of the app)
+examples/
+skills/
+mini-services/
+tests/
+.zscripts/
+scratch/
+report/
+storage/
+

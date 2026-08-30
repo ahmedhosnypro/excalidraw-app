@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6.33.0/schema.json",
+  "ignoreDependencies": ["tw-animate-css"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/app/**/*.{ts,tsx}",
+        "src/components/ui/**",
+        "src/hooks/use-toast.ts",
+        "src/hooks/use-mobile.ts",
+        "src/db/client.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  }
+}
