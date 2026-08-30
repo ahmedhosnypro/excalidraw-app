@@ -11,6 +11,7 @@ import {
   FilePlus,
   Files,
   History,
+  Keyboard,
   LogIn,
   LogOut,
   Moon,
@@ -42,6 +43,7 @@ export function EditorMainMenu() {
     currentFileId,
     openShareDialog,
     openHistoryDialog,
+    openShortcuts,
   } = useEditorStore();
   const createFile = useCreateFile();
 
@@ -257,6 +259,17 @@ export function EditorMainMenu() {
         icon={<Icon>{isDark ? <Sun /> : <Moon />}</Icon>}
       >
         {isDark ? "Light mode" : "Dark mode"}
+      </MainMenu.Item>
+      <MainMenu.Item
+        onSelect={openShortcuts}
+        icon={
+          <Icon>
+            <Keyboard />
+          </Icon>
+        }
+        shortcut="?"
+      >
+        Keyboard shortcuts
       </MainMenu.Item>
       <MainMenu.Separator />
       {isAuthed ? (

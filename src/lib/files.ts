@@ -24,6 +24,7 @@ function toSummary(row: typeof files.$inferSelect): FileSummary {
     name: row.name,
     folderId: row.folderId,
     shareToken: row.shareToken,
+    shareExpiresAt: row.shareExpiresAt ? row.shareExpiresAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     lastOpenedAt: row.lastOpenedAt ? row.lastOpenedAt.toISOString() : null,
@@ -256,14 +257,19 @@ export async function duplicateFile(userId: string, fileId: string): Promise<Fil
 
 /**
  * Enable public read-only sharing for a drawing. Generates (or rotates) the
- * share token. Returns the updated summary with the new token, or `null` if
- * the file does not exist / is not owned by the user.
+ * share token. Optionally sets an expiry (null = never expires). Returns the
+ * updated summary with the new token, or `null` if the file does not exist /
+ * is not owned by the user.
  */
-export async function enableShare(userId: string, fileId: string): Promise<FileSummary | null> {
+export async function enableShare(
+  userId: string,
+  fileId: string,
+  expiresAt: Date | null = null
+): Promise<FileSummary | null> {
   const token = crypto.randomUUID();
   const [row] = await db
     .update(files)
-    .set({ shareToken: token })
+    .set({ shareToken: token, shareExpiresAt: expiresAt })
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;
@@ -277,7 +283,7 @@ export async function enableShare(userId: string, fileId: string): Promise<FileS
 export async function revokeShare(userId: string, fileId: string): Promise<FileSummary | null> {
   const [row] = await db
     .update(files)
-    .set({ shareToken: null })
+    .set({ shareToken: null, shareExpiresAt: null })
     .where(and(eq(files.id, fileId), eq(files.userId, userId)))
     .returning();
   return row ? toSummary(row) : null;
@@ -286,15 +292,23 @@ export async function revokeShare(userId: string, fileId: string): Promise<FileS
 /**
  * Load a publicly shared drawing by its share token. No auth required — this
  * is the only file-access function callable without a session. Returns the
- * drawing name + scene content, or `null` if no drawing matches the token
- * (or sharing was revoked).
+ * drawing name + scene content, or `null` if no drawing matches the token,
+ * sharing was revoked, or the share link has expired.
  */
 export async function getSharedFile(token: string): Promise<SharedFile | null> {
   const [row] = await db
-    .select({ id: files.id, name: files.name, shareToken: files.shareToken })
+    .select({
+      id: files.id,
+      name: files.name,
+      shareToken: files.shareToken,
+      shareExpiresAt: files.shareExpiresAt,
+    })
     .from(files)
     .where(eq(files.shareToken, token));
   if (!row) {
+    return null;
+  }
+  if (row.shareExpiresAt && row.shareExpiresAt.getTime() <= Date.now()) {
     return null;
   }
   const data = await getStorageProvider().load(row.id);

@@ -34,6 +34,8 @@ interface EditorState {
   moveDialog: { fileId: string; name: string; folderId: string | null } | null;
   /** Folder filter active in the sidebar: null = "All", "none" = root (no folder), id = that folder. */
   folderFilter: string | null;
+  /** Keyboard shortcuts dialog open. */
+  shortcutsOpen: boolean;
   setCurrentFile: (
     id: string | null,
     name: string,
@@ -54,6 +56,8 @@ interface EditorState {
   openMoveDialog: (fileId: string, name: string, folderId: string | null) => void;
   closeMoveDialog: () => void;
   setFolderFilter: (filter: string | null) => void;
+  openShortcuts: () => void;
+  closeShortcuts: () => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -76,6 +80,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   historyDialog: null,
   moveDialog: null,
   folderFilter: null,
+  shortcutsOpen: false,
   setCurrentFile: (id, name, shareToken = null, folderId = null) =>
     set({
       currentFileId: id,
@@ -118,6 +123,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   openMoveDialog: (fileId, name, folderId) => set({ moveDialog: { fileId, name, folderId } }),
   closeMoveDialog: () => set({ moveDialog: null }),
   setFolderFilter: (folderFilter) => set({ folderFilter }),
+  openShortcuts: () => set({ shortcutsOpen: true }),
+  closeShortcuts: () => set({ shortcutsOpen: false }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),

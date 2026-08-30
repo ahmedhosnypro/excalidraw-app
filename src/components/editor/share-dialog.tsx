@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye, Link2, Link2Off, Loader2 } from "lucide-react";
+import { Check, Clock, Copy, Eye, Link2, Link2Off, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useEnableShare, useRevokeShare } from "@/hooks/use-files";
@@ -15,12 +15,28 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const EXPIRY_OPTIONS = [
+  { value: "never", label: "Never", hours: null as number | null },
+  { value: "1h", label: "1 hour", hours: 1 },
+  { value: "24h", label: "24 hours", hours: 24 },
+  { value: "7d", label: "7 days", hours: 24 * 7 },
+  { value: "30d", label: "30 days", hours: 24 * 30 },
+] as const;
 
 export function ShareDialog() {
   const { shareDialog, closeShareDialog, setShareToken } = useEditorStore();
   const enableShare = useEnableShare();
   const revokeShare = useRevokeShare();
   const [copied, setCopied] = useState(false);
+  const [expiry, setExpiry] = useState<string>("never");
 
   const open = shareDialog !== null;
   const fileId = shareDialog?.fileId ?? "";
@@ -30,8 +46,10 @@ export function ShareDialog() {
     token && typeof window !== "undefined" ? `${window.location.origin}/?share=${token}` : "";
 
   async function handleEnable() {
+    const option = EXPIRY_OPTIONS.find((o) => o.value === expiry);
+    const hours = option?.hours ?? null;
     try {
-      const summary = await enableShare.mutateAsync(fileId);
+      const summary = await enableShare.mutateAsync({ fileId, expiresInHours: hours });
       setShareToken(summary.shareToken);
       toast.success("Sharing enabled — link ready to copy.");
     } catch {
@@ -125,6 +143,22 @@ export function ShareDialog() {
             <p className="text-sm text-muted-foreground">
               Sharing is currently disabled. Enable it to generate a public read-only link.
             </p>
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Link expires:</span>
+              <Select value={expiry} onValueChange={setExpiry}>
+                <SelectTrigger className="h-8 flex-1 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPIRY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={handleEnable} disabled={enableShare.isPending} className="w-full">
               {enableShare.isPending ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />

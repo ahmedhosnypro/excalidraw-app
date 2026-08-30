@@ -34,10 +34,6 @@ const eslintConfig = [
   {
     plugins: { drizzle },
     rules: {
-      // ── Drizzle query safety ──────────────────────────────────────────
-      "drizzle/enforce-delete-with-where": "error",
-      "drizzle/enforce-update-with-where": "error",
-
       // ── TypeScript strictness ──────────────────────────────────────────
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
@@ -74,6 +70,17 @@ const eslintConfig = [
       "no-unreachable": "off",
       "no-useless-escape": "off",
       "no-irregular-whitespace": "off",
+    },
+  },
+  // ── Drizzle query safety ──────────────────────────────────────────────
+  // Scoped to the DB/files layer only — the plugin's `.delete()` / `.update()`
+  // pattern-matchers fire false positives on plain Map/array methods elsewhere.
+  {
+    files: ["src/lib/files.ts", "src/app/api/**/*.ts"],
+    plugins: { drizzle },
+    rules: {
+      "drizzle/enforce-delete-with-where": "error",
+      "drizzle/enforce-update-with-where": "error",
     },
   },
 ];

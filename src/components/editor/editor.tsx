@@ -13,6 +13,7 @@ import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
 import { MoveToFolderDialog } from "@/components/editor/move-to-folder-dialog";
 import { ShareDialog } from "@/components/editor/share-dialog";
+import { ShortcutsDialog } from "@/components/editor/shortcuts-dialog";
 import { VersionHistoryDialog } from "@/components/editor/version-history-dialog";
 import { useCreateFile, loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
 import { parseScene } from "@/lib/scene";
@@ -273,6 +274,8 @@ export function Editor() {
       <VersionHistoryDialog />
 
       <MoveToFolderDialog />
+
+      <ShortcutsDialog />
     </div>
   );
 }

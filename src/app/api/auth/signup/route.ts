@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { db } from "@/db/client";
 import { users } from "@/db/schema";
+import { getClientKey, rateLimit, rateLimited } from "@/lib/rate-limit";
 
 const signupSchema = z.object({
   email: z.string().email().max(255),
@@ -12,7 +13,16 @@ const signupSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 });
 
+// 5 signups per IP per 15 minutes — deters automated account creation.
+const SIGNUP_LIMIT = { limit: 5, windowMs: 15 * 60 * 1000 };
+
 export async function POST(request: Request) {
+  const rlKey = `signup:${getClientKey(null, request)}`;
+  const rl = rateLimit(rlKey, SIGNUP_LIMIT);
+  if (!rl.ok) {
+    return rateLimited(rl.resetAt);
+  }
+
   const body: unknown = await request.json().catch(() => null);
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) {

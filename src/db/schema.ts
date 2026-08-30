@@ -48,6 +48,12 @@ export const files = sqliteTable(
      * any previously shared link.
      */
     shareToken: text("share_token"),
+    /**
+     * Optional expiry timestamp for the share link. When set, the public link
+     * stops working after this time (without revoking the token — re-enabling
+     * or extending is possible). Null = never expires.
+     */
+    shareExpiresAt: integer("share_expires_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

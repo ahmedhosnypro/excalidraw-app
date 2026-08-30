@@ -7,6 +7,8 @@ export type FileSummary = {
   folderId: string | null;
   /** Opaque sharing token; non-null means the drawing is publicly viewable. */
   shareToken: string | null;
+  /** Optional share-link expiry (ISO string); null = never expires. */
+  shareExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string | null;

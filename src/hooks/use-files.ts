@@ -71,8 +71,14 @@ export function useDuplicateFile() {
 export function useEnableShare() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      json<FileSummary>(fetch(`/api/files/${id}/share`, { method: "POST" })),
+    mutationFn: ({ fileId, expiresInHours }: { fileId: string; expiresInHours: number | null }) =>
+      json<FileSummary>(
+        fetch(`/api/files/${fileId}/share`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ expiresInHours }),
+        })
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
   });
 }
