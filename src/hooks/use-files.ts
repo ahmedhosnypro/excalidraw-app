@@ -68,6 +68,35 @@ export function useDuplicateFile() {
   });
 }
 
+export function useEnableShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      json<FileSummary>(fetch(`/api/files/${id}/share`, { method: "POST" })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+  });
+}
+
+export function useRevokeShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      json<FileSummary>(fetch(`/api/files/${id}/share`, { method: "DELETE" })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] }),
+  });
+}
+
+/** Fetch a publicly shared drawing (no auth). Returns name + scene JSON. */
+export async function fetchSharedFile(
+  token: string
+): Promise<{ name: string; data: string } | null> {
+  const res = await fetch(`/api/shared/${token}`);
+  if (!res.ok) {
+    return null;
+  }
+  return (await res.json()) as { name: string; data: string };
+}
+
 /**
  * Lazy-load a single file's scene content (used for sidebar thumbnails).
  * Stale for 5 min so re-renders don't refetch; disabled when the file id is null.

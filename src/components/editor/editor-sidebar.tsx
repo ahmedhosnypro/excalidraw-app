@@ -165,6 +165,7 @@ export function EditorSidebar() {
               key={file.id}
               fileId={file.id}
               name={file.name}
+              shareToken={file.shareToken}
               updatedAt={file.updatedAt}
             />
           ))}

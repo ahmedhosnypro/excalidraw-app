@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Copy, MoreVertical, Pencil, Share2, Trash2 } from "lucide-react";
 
 import { useDuplicateFile, useFileContent, useRenameFile } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
@@ -20,23 +20,25 @@ import { FileThumbnail } from "@/components/editor/file-thumbnail";
 interface FileListItemProps {
   fileId: string;
   name: string;
+  shareToken: string | null;
   updatedAt: string;
 }
 
 /** A single drawing row in the sidebar: thumbnail + name + relative time + menu. */
-export function FileListItem({ fileId, name, updatedAt }: FileListItemProps) {
+export function FileListItem({ fileId, name, shareToken, updatedAt }: FileListItemProps) {
   const renameFile = useRenameFile();
   const duplicateFile = useDuplicateFile();
   const { data: sceneJson } = useFileContent(fileId);
 
-  const { currentFileId, setCurrentFile, setSidebarOpen, setPendingDelete } = useEditorStore();
+  const { currentFileId, setCurrentFile, setSidebarOpen, setPendingDelete, openShareDialog } =
+    useEditorStore();
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(name);
 
   const isActive = fileId === currentFileId;
 
   async function handleOpen() {
-    setCurrentFile(fileId, name);
+    setCurrentFile(fileId, name, shareToken);
     setSidebarOpen(false);
   }
 
@@ -59,10 +61,15 @@ export function FileListItem({ fileId, name, updatedAt }: FileListItemProps) {
   async function handleDuplicate() {
     try {
       const copy = await duplicateFile.mutateAsync(fileId);
-      setCurrentFile(copy.id, copy.name);
+      setCurrentFile(copy.id, copy.name, copy.shareToken);
     } catch {
       // toast handled by caller context
     }
+  }
+
+  function handleShare() {
+    setCurrentFile(fileId, name, shareToken);
+    openShareDialog();
   }
 
   return (
@@ -91,7 +98,15 @@ export function FileListItem({ fileId, name, updatedAt }: FileListItemProps) {
           className="flex flex-1 flex-col items-start gap-0.5 overflow-hidden text-left"
           onClick={handleOpen}
         >
-          <span className="truncate font-medium">{name}</span>
+          <span className="flex w-full items-center gap-1">
+            <span className="truncate font-medium">{name}</span>
+            {shareToken && (
+              <Share2
+                className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400"
+                aria-label="Shared"
+              />
+            )}
+          </span>
           <span className="text-xs text-muted-foreground">{formatRelativeTime(updatedAt)}</span>
         </button>
       )}
@@ -114,6 +129,10 @@ export function FileListItem({ fileId, name, updatedAt }: FileListItemProps) {
             <DropdownMenuItem onSelect={handleDuplicate}>
               <Copy className="mr-2 size-4" />
               Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => handleShare()}>
+              <Share2 className="mr-2 size-4" />
+              Share
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

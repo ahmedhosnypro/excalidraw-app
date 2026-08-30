@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/db/client";
 import { files } from "@/db/schema";
 import { getStorageProvider } from "@/lib/storage";
-import type { FileContent, FileSummary } from "@/lib/types";
+import type { FileContent, FileSummary, SharedFile } from "@/lib/types";
 
 /** Public shape of a file returned to the client (no internal columns). */
 export type { FileSummary } from "@/lib/types";
@@ -15,6 +15,7 @@ function toSummary(row: typeof files.$inferSelect): FileSummary {
   return {
     id: row.id,
     name: row.name,
+    shareToken: row.shareToken,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     lastOpenedAt: row.lastOpenedAt ? row.lastOpenedAt.toISOString() : null,
@@ -181,6 +182,53 @@ export async function duplicateFile(userId: string, fileId: string): Promise<Fil
     await getStorageProvider().save(copy.id, data);
   }
   return copy;
+}
+
+/**
+ * Enable public read-only sharing for a drawing. Generates (or rotates) the
+ * share token. Returns the updated summary with the new token, or `null` if
+ * the file does not exist / is not owned by the user.
+ */
+export async function enableShare(userId: string, fileId: string): Promise<FileSummary | null> {
+  const token = crypto.randomUUID();
+  const [row] = await db
+    .update(files)
+    .set({ shareToken: token })
+    .where(and(eq(files.id, fileId), eq(files.userId, userId)))
+    .returning();
+  return row ? toSummary(row) : null;
+}
+
+/**
+ * Revoke public sharing for a drawing (clears the token). Any previously
+ * shared link stops working immediately. Returns the updated summary, or
+ * `null` if the file is not owned by the user.
+ */
+export async function revokeShare(userId: string, fileId: string): Promise<FileSummary | null> {
+  const [row] = await db
+    .update(files)
+    .set({ shareToken: null })
+    .where(and(eq(files.id, fileId), eq(files.userId, userId)))
+    .returning();
+  return row ? toSummary(row) : null;
+}
+
+/**
+ * Load a publicly shared drawing by its share token. No auth required — this
+ * is the only file-access function callable without a session. Returns the
+ * drawing name + scene content, or `null` if no drawing matches the token
+ * (or sharing was revoked).
+ */
+export async function getSharedFile(token: string): Promise<SharedFile | null> {
+  const [row] = await db
+    .select({ id: files.id, name: files.name, shareToken: files.shareToken })
+    .from(files)
+    .where(eq(files.shareToken, token));
+  if (!row) {
+    return null;
+  }
+  const data = await getStorageProvider().load(row.id);
+  return { name: row.name, data: data ?? "" };
 }
 
 export { isUserId };

@@ -10,6 +10,8 @@ interface EditorState {
   currentFileId: string | null;
   /** Name of the current drawing (mirrored for the canvas title). */
   currentName: string;
+  /** Share token of the current drawing (null = not shared / guest). */
+  currentShareToken: string | null;
   saveStatus: SaveStatus;
   sidebarOpen: boolean;
   authOpen: boolean;
@@ -22,13 +24,18 @@ interface EditorState {
   excalidrawApi: ExcalidrawImperativeAPI | null;
   /** Pending delete confirmation target (id + name) — set by FileListItem. */
   pendingDelete: { id: string; name: string } | null;
-  setCurrentFile: (id: string | null, name: string) => void;
+  /** Share dialog open state + target file (id + name + current token). */
+  shareDialog: { fileId: string; name: string; token: string | null } | null;
+  setCurrentFile: (id: string | null, name: string, shareToken?: string | null) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setSidebarOpen: (open: boolean) => void;
   setToggleSidebarFn: (fn: (() => void) | null) => void;
   setForceSaveFn: (fn: (() => void) | null) => void;
   setExcalidrawApi: (api: ExcalidrawImperativeAPI | null) => void;
   setPendingDelete: (target: { id: string; name: string } | null) => void;
+  openShareDialog: () => void;
+  closeShareDialog: () => void;
+  setShareToken: (token: string | null) => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -37,6 +44,7 @@ interface EditorState {
 export const useEditorStore = create<EditorState>((set) => ({
   currentFileId: null,
   currentName: "Untitled",
+  currentShareToken: null,
   saveStatus: "idle",
   sidebarOpen: false,
   authOpen: false,
@@ -45,13 +53,38 @@ export const useEditorStore = create<EditorState>((set) => ({
   forceSaveFn: null,
   excalidrawApi: null,
   pendingDelete: null,
-  setCurrentFile: (id, name) => set({ currentFileId: id, currentName: name, saveStatus: "idle" }),
+  shareDialog: null,
+  setCurrentFile: (id, name, shareToken = null) =>
+    set({
+      currentFileId: id,
+      currentName: name,
+      currentShareToken: shareToken,
+      saveStatus: "idle",
+    }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setToggleSidebarFn: (toggleSidebarFn) => set({ toggleSidebarFn }),
   setForceSaveFn: (forceSaveFn) => set({ forceSaveFn }),
   setExcalidrawApi: (excalidrawApi) => set({ excalidrawApi }),
   setPendingDelete: (pendingDelete) => set({ pendingDelete }),
+  openShareDialog: () =>
+    set((state) =>
+      state.currentFileId
+        ? {
+            shareDialog: {
+              fileId: state.currentFileId,
+              name: state.currentName,
+              token: state.currentShareToken,
+            },
+          }
+        : {}
+    ),
+  closeShareDialog: () => set({ shareDialog: null }),
+  setShareToken: (token) =>
+    set((state) => ({
+      currentShareToken: token,
+      ...(state.shareDialog ? { shareDialog: { ...state.shareDialog, token } } : {}),
+    })),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),

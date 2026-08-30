@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { PencilLine } from "lucide-react";
 
 const Editor = dynamic(() => import("@/components/editor/editor").then((m) => m.Editor), {
@@ -21,6 +22,17 @@ const Editor = dynamic(() => import("@/components/editor/editor").then((m) => m.
   ),
 });
 
+const SharedEditor = dynamic(
+  () => import("@/components/editor/shared-editor").then((m) => m.SharedEditor),
+  { ssr: false }
+);
+
 export default function Home() {
+  const searchParams = useSearchParams();
+  const shareToken = searchParams.get("share");
+
+  if (shareToken) {
+    return <SharedEditor token={shareToken} />;
+  }
   return <Editor />;
 }

@@ -11,7 +11,9 @@ import { AuthDialog } from "@/components/auth/auth-dialog";
 import { EditorMainMenu } from "@/components/editor/editor-main-menu";
 import { EditorSidebar } from "@/components/editor/editor-sidebar";
 import { EditorTopRight } from "@/components/editor/editor-top-right";
+import { ShareDialog } from "@/components/editor/share-dialog";
 import { useCreateFile, loadFileContent, saveFileContent, touchFile } from "@/hooks/use-files";
+import { parseScene } from "@/lib/scene";
 import { useEditorStore } from "@/stores/editor-store";
 
 type ExcalidrawProps = React.ComponentProps<typeof Excalidraw>;
@@ -23,18 +25,6 @@ type InitialDataState = NonNullable<
 
 const GUEST_STORAGE_KEY = "excalidraw-app:guest";
 const EMPTY_SCENE: InitialDataState = { elements: [], appState: {} };
-
-function parseScene(raw: string | null | undefined): InitialDataState {
-  if (!raw) {
-    return EMPTY_SCENE;
-  }
-  try {
-    const parsed = JSON.parse(raw) as Partial<InitialDataState>;
-    return { elements: parsed.elements ?? [], appState: parsed.appState ?? {} };
-  } catch {
-    return EMPTY_SCENE;
-  }
-}
 
 export function Editor() {
   const { data: session, status } = useSession();
@@ -66,10 +56,14 @@ export function Editor() {
 
   const loadInitialData = useCallback((): Promise<InitialDataState> => {
     if (isAuthed && fileId) {
-      return loadFileContent(fileId).then((raw) => parseScene(raw));
+      return loadFileContent(fileId).then(
+        (raw) => (parseScene(raw) as InitialDataState) ?? EMPTY_SCENE
+      );
     }
     if (!isAuthed) {
-      return Promise.resolve(parseScene(localStorage.getItem(GUEST_STORAGE_KEY)));
+      return Promise.resolve(
+        (parseScene(localStorage.getItem(GUEST_STORAGE_KEY)) as InitialDataState) ?? EMPTY_SCENE
+      );
     }
     return Promise.resolve(EMPTY_SCENE);
   }, [fileId, isAuthed]);
@@ -176,7 +170,7 @@ export function Editor() {
         const file = await createFile.mutateAsync("Imported drawing");
         await saveFileContent(file.id, guestScene);
         if (!cancelled) {
-          setCurrentFile(file.id, file.name);
+          setCurrentFile(file.id, file.name, file.shareToken);
           toast.success("Your drawing was saved to the cloud.");
         }
       } catch {
@@ -271,6 +265,8 @@ export function Editor() {
         onOpenChange={(open) => (open ? null : closeAuth())}
         onModeChange={setAuthMode}
       />
+
+      <ShareDialog />
     </div>
   );
 }

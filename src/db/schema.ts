@@ -36,6 +36,12 @@ export const files = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Untitled"),
+    /**
+     * Opaque sharing token. When non-null, the drawing is publicly viewable
+     * (read-only) at `/?share=<token>`. Rotating or nulling the token revokes
+     * any previously shared link.
+     */
+    shareToken: text("share_token"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
