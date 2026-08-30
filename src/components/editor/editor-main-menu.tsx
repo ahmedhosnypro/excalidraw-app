@@ -4,10 +4,12 @@ import type { ReactNode } from "react";
 import { MainMenu } from "@excalidraw/excalidraw";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Files, LogIn, LogOut, Moon, Save, Sun, FilePlus } from "lucide-react";
+import { Download, FileImage, FilePlus, Files, LogIn, LogOut, Moon, Save, Sun } from "lucide-react";
+import { toast } from "sonner";
 
 import { useCreateFile } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
+import { exportScene } from "@/lib/export";
 
 function Icon({ children }: { children: ReactNode }) {
   return <span className="flex size-4 items-center justify-center">{children}</span>;
@@ -16,7 +18,8 @@ function Icon({ children }: { children: ReactNode }) {
 export function EditorMainMenu() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  const { setCurrentFile, openAuth, toggleSidebarFn, forceSaveFn } = useEditorStore();
+  const { setCurrentFile, openAuth, toggleSidebarFn, forceSaveFn, excalidrawApi, currentName } =
+    useEditorStore();
   const createFile = useCreateFile();
 
   const isAuthed = Boolean(session?.user);
@@ -28,6 +31,24 @@ export function EditorMainMenu() {
       setCurrentFile(file.id, file.name);
     } else {
       setCurrentFile(null, "Untitled");
+    }
+  }
+
+  async function handleExport(format: "png" | "svg") {
+    if (!excalidrawApi) {
+      toast.error("Editor is not ready yet.");
+      return;
+    }
+    try {
+      const safeName =
+        (currentName || "drawing")
+          .replace(/[^\w-]+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "") || "drawing";
+      await exportScene(excalidrawApi, format, safeName);
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch {
+      toast.error(`Could not export as ${format.toUpperCase()}.`);
     }
   }
 
@@ -64,6 +85,28 @@ export function EditorMainMenu() {
       >
         Save now
       </MainMenu.Item>
+      <MainMenu.Group title="Export">
+        <MainMenu.Item
+          onSelect={() => handleExport("png")}
+          icon={
+            <Icon>
+              <FileImage />
+            </Icon>
+          }
+        >
+          Export as PNG
+        </MainMenu.Item>
+        <MainMenu.Item
+          onSelect={() => handleExport("svg")}
+          icon={
+            <Icon>
+              <Download />
+            </Icon>
+          }
+        >
+          Export as SVG
+        </MainMenu.Item>
+      </MainMenu.Group>
       <MainMenu.Separator />
       <MainMenu.Item
         onSelect={() => setTheme(isDark ? "light" : "dark")}

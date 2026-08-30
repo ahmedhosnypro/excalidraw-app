@@ -68,6 +68,19 @@ export function useDuplicateFile() {
   });
 }
 
+/**
+ * Lazy-load a single file's scene content (used for sidebar thumbnails).
+ * Stale for 5 min so re-renders don't refetch; disabled when the file id is null.
+ */
+export function useFileContent(id: string | null) {
+  return useQuery({
+    queryKey: ["file-content", id],
+    queryFn: async () => loadFileContent(id ?? ""),
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export async function loadFileContent(id: string): Promise<string> {
   const res = await fetch(`/api/files/${id}/content`);
   if (!res.ok) {

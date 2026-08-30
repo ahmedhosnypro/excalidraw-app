@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { AuthMode } from "@/components/auth/auth-dialog";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -17,11 +18,17 @@ interface EditorState {
   toggleSidebarFn: (() => void) | null;
   /** Imperative force-save (wired from the editor's debounced-save logic). */
   forceSaveFn: (() => void) | null;
+  /** Imperative Excalidraw API (for export, scene access). */
+  excalidrawApi: ExcalidrawImperativeAPI | null;
+  /** Pending delete confirmation target (id + name) — set by FileListItem. */
+  pendingDelete: { id: string; name: string } | null;
   setCurrentFile: (id: string | null, name: string) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setSidebarOpen: (open: boolean) => void;
   setToggleSidebarFn: (fn: (() => void) | null) => void;
   setForceSaveFn: (fn: (() => void) | null) => void;
+  setExcalidrawApi: (api: ExcalidrawImperativeAPI | null) => void;
+  setPendingDelete: (target: { id: string; name: string } | null) => void;
   openAuth: (mode: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
@@ -36,11 +43,15 @@ export const useEditorStore = create<EditorState>((set) => ({
   authMode: "signin",
   toggleSidebarFn: null,
   forceSaveFn: null,
+  excalidrawApi: null,
+  pendingDelete: null,
   setCurrentFile: (id, name) => set({ currentFileId: id, currentName: name, saveStatus: "idle" }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setToggleSidebarFn: (toggleSidebarFn) => set({ toggleSidebarFn }),
   setForceSaveFn: (forceSaveFn) => set({ forceSaveFn }),
+  setExcalidrawApi: (excalidrawApi) => set({ excalidrawApi }),
+  setPendingDelete: (pendingDelete) => set({ pendingDelete }),
   openAuth: (authMode) => set({ authOpen: true, authMode }),
   closeAuth: () => set({ authOpen: false }),
   setAuthMode: (authMode) => set({ authMode }),

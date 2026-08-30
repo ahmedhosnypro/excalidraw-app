@@ -49,6 +49,7 @@ export function Editor() {
     setSaveStatus,
     setToggleSidebarFn,
     setForceSaveFn,
+    setExcalidrawApi,
     closeAuth,
     setAuthMode,
   } = useEditorStore();
@@ -213,6 +214,28 @@ export function Editor() {
     };
   }, []);
 
+  // Dev-only QA hook: expose a stable sidebar toggle on window so agent-browser
+  // (which can't trigger Excalidraw's radix onSelect) can open the sidebar in tests.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+    function toggleSidebar() {
+      const api = apiRef.current;
+      if (api) {
+        api.toggleSidebar({ name: "my-drawings" });
+      }
+    }
+    Object.defineProperty(window, "__toggleSidebar", {
+      value: toggleSidebar,
+      configurable: true,
+      writable: true,
+    });
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__toggleSidebar;
+    };
+  }, []);
+
   return (
     <div className="h-screen w-screen">
       <Excalidraw
@@ -221,6 +244,7 @@ export function Editor() {
         onChange={handleChange}
         excalidrawAPI={(api) => {
           apiRef.current = api;
+          setExcalidrawApi(api);
           setToggleSidebarFn(() => () => api.toggleSidebar({ name: "my-drawings" }));
         }}
         theme={theme === "dark" ? "dark" : "light"}

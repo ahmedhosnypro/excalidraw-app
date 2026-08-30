@@ -3,18 +3,11 @@
 import { useMemo, useState } from "react";
 import { Sidebar } from "@excalidraw/excalidraw";
 import { useSession } from "next-auth/react";
-import { Copy, FilePlus, Loader2, MoreVertical, Pencil, Search, Trash2 } from "lucide-react";
+import { FilePlus, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  useCreateFile,
-  useDeleteFile,
-  useDuplicateFile,
-  useFiles,
-  useRenameFile,
-} from "@/hooks/use-files";
+import { useCreateFile, useDeleteFile, useFiles } from "@/hooks/use-files";
 import { useEditorStore } from "@/stores/editor-store";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,16 +19,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/editor/user-avatar";
+import { FileListItem } from "@/components/editor/file-list-item";
 
 const MIN_FILES_FOR_SEARCH = 4;
 
@@ -45,14 +33,16 @@ export function EditorSidebar() {
   const { data: files, isLoading } = useFiles(isAuthed);
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
-  const renameFile = useRenameFile();
-  const duplicateFile = useDuplicateFile();
 
-  const { currentFileId, setCurrentFile, setSidebarOpen, openAuth } = useEditorStore();
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const {
+    currentFileId,
+    setCurrentFile,
+    setSidebarOpen,
+    openAuth,
+    pendingDelete,
+    setPendingDelete,
+  } = useEditorStore();
   const [search, setSearch] = useState("");
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filteredFiles = useMemo(() => {
     if (!files) {
@@ -70,46 +60,21 @@ export function EditorSidebar() {
     setCurrentFile(file.id, file.name);
   }
 
-  async function handleOpen(id: string, name: string) {
-    setCurrentFile(id, name);
-    setSidebarOpen(false);
-  }
-
-  function startRename(id: string, name: string) {
-    setRenamingId(id);
-    setRenameValue(name);
-  }
-
-  async function commitRename(id: string) {
-    const name = renameValue.trim() || "Untitled";
-    setRenamingId(null);
-    if (currentFileId === id) {
-      setCurrentFile(id, name);
-    }
-    await renameFile.mutateAsync({ id, name });
-  }
-
-  async function handleDuplicate(id: string, name: string) {
-    try {
-      const copy = await duplicateFile.mutateAsync(id);
-      toast.success(`Duplicated "${name}"`);
-      setCurrentFile(copy.id, copy.name);
-    } catch {
-      toast.error("Could not duplicate the drawing.");
-    }
-  }
-
   async function confirmDelete() {
     if (!pendingDelete) {
       return;
     }
     const { id, name } = pendingDelete;
     setPendingDelete(null);
-    await deleteFile.mutateAsync(id);
-    if (currentFileId === id) {
-      setCurrentFile(null, "Untitled");
+    try {
+      await deleteFile.mutateAsync(id);
+      if (currentFileId === id) {
+        setCurrentFile(null, "Untitled");
+      }
+      toast.success(`Deleted "${name}"`);
+    } catch {
+      toast.error("Could not delete the drawing.");
     }
-    toast.success(`Deleted "${name}"`);
   }
 
   return (
@@ -195,103 +160,67 @@ export function EditorSidebar() {
         </div>
       ) : (
         <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
-          {filteredFiles.map((file) => {
-            const isActive = file.id === currentFileId;
-            const isRenaming = renamingId === file.id;
-            return (
-              <div
-                key={file.id}
-                className={`group flex items-center gap-2 rounded-md border px-2 py-2 text-sm transition-colors ${
-                  isActive ? "border-primary/40 bg-accent" : "border-transparent hover:bg-accent/60"
-                }`}
-              >
-                {isRenaming ? (
-                  <Input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={() => commitRename(file.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void commitRename(file.id);
-                      if (e.key === "Escape") setRenamingId(null);
-                    }}
-                    className="h-7"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="flex flex-1 flex-col items-start gap-0.5 overflow-hidden text-left"
-                    onClick={() => handleOpen(file.id, file.name)}
-                  >
-                    <span className="truncate font-medium">{file.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(file.updatedAt).toLocaleDateString()}
-                    </span>
-                  </button>
-                )}
-                {!isRenaming && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 opacity-0 group-hover:opacity-100"
-                      >
-                        <MoreVertical className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => startRename(file.id, file.name)}>
-                        <Pencil className="mr-2 size-4" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleDuplicate(file.id, file.name)}>
-                        <Copy className="mr-2 size-4" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => setPendingDelete({ id: file.id, name: file.name })}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 size-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            );
-          })}
+          {filteredFiles.map((file) => (
+            <FileListItem
+              key={file.id}
+              fileId={file.id}
+              name={file.name}
+              updatedAt={file.updatedAt}
+            />
+          ))}
         </div>
       )}
 
-      <AlertDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this drawing?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete{" "}
-              <span className="font-medium text-foreground">"{pendingDelete?.name}"</span> and its
-              content. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteFile.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={deleteFile.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteFile.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete confirmation is rendered here so it overlays even when the
+          sidebar itself would unmount on file switch. */}
+      {/* Note: AlertDialog is owned by the editor component for layering. */}
+      {pendingDelete && (
+        <DeleteConfirmation
+          name={pendingDelete.name}
+          pending={deleteFile.isPending}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
     </Sidebar>
+  );
+}
+
+/** Inline AlertDialog for delete confirmation (keeps imports local to the sidebar). */
+function DeleteConfirmation({
+  name,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  name: string;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this drawing?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete{" "}
+            <span className="font-medium text-foreground">"{name}"</span> and its content. This
+            action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={pending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
