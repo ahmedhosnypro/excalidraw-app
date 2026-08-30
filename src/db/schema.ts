@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
@@ -18,10 +17,12 @@ export const users = sqliteTable("users", {
   name: text("name"),
   passwordHash: text("password_hash").notNull(),
   image: text("image"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch()))`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
-    .default(sql`(unixepoch())`)
+    .$defaultFn(() => new Date())
     .$onUpdate(() => new Date()),
 });
 
@@ -35,10 +36,12 @@ export const files = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Untitled"),
-    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
     updatedAt: integer("updated_at", { mode: "timestamp" })
       .notNull()
-      .default(sql`(unixepoch())`)
+      .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
     lastOpenedAt: integer("last_opened_at", { mode: "timestamp" }),
   },
